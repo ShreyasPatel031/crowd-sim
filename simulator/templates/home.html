@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crowd Sim</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f6f5f1; color: #1b1b1b; }
+    main { max-width: 760px; margin: 40px auto; padding: 0 20px 64px; }
+    h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.03em; margin: 0 0 8px; }
+    p.lead { color: #5c5c5c; margin: 0 0 24px; line-height: 1.5; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+    .hint { font-weight: 500; color: #6a6a6a; font-size: 12px; }
+    input[type="text"], textarea, select { width: 100%; box-sizing: border-box; border: 1px solid #d4d0c8; background: #fff; border-radius: 8px; padding: 10px 12px; font: inherit; }
+    textarea { min-height: 72px; resize: vertical; }
+    .field { margin-bottom: 16px; }
+    button { border: 0; background: #1b1b1b; color: #fff; border-radius: 8px; padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #eceae4; color: #1b1b1b; margin-top: 8px; padding: 8px 12px; font-size: 13px; }
+    button:hover { background: #333; }
+    button.secondary:hover { background: #e0dcd3; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .note { margin-top: 18px; font-size: 13px; color: #6a6a6a; line-height: 1.45; }
+    .err { background: #fde8e8; color: #8a1f1f; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+    .pill { display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #eceae4; margin: 0 6px 16px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 320px; overflow: auto; }
+    .persona { display: flex; gap: 10px; align-items: flex-start; background: #fff; border: 1px solid #e4e0d8; border-radius: 10px; padding: 10px 12px; }
+    .persona input { margin-top: 3px; }
+    .persona strong { display: block; font-size: 13px; }
+    .persona span { display: block; font-size: 12px; color: #5c5c5c; line-height: 1.35; margin-top: 2px; }
+    .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
+    .example { border: 1px solid #d4d0c8; background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+    .example:hover { background: #eceae4; }
+    .example strong { display: block; font-size: 13px; }
+    .example span { display: block; font-size: 12px; color: #5c5c5c; margin-top: 2px; }
+    .model-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .model-opt { display: flex; gap: 8px; align-items: flex-start; background: #fff; border: 1px solid #e4e0d8; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+    .model-opt:has(input:checked) { border-color: #1b1b1b; background: #f6f5f1; }
+    .model-opt input { margin-top: 3px; }
+    .model-opt strong { display: block; font-size: 13px; }
+    .model-opt span { display: block; font-size: 11px; color: #5c5c5c; line-height: 1.35; margin-top: 2px; }
+    .search-row { display: flex; gap: 8px; }
+    .search-row input { flex: 1; }
+    .search-results { margin-top: 10px; max-height: 220px; overflow: auto; }
+    .hit { border: 1px solid #eceae4; border-radius: 8px; padding: 8px 10px; margin: 0 0 6px; font-size: 12px; }
+    .hit strong { display: block; font-size: 13px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } .model-grid { grid-template-columns: 1fr; } .search-row { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="pill">{% if ready %}{{ model_profile.label }} ready{% else %}Model unavailable{% endif %}</div>
+    {% if pioneer %}<div class="pill">Pioneer open-weight verdicts</div>{% endif %}
+    {% if terac %}<div class="pill">Terac human studies</div>{% endif %}
+    {% if stripe_ready %}<div class="pill">Stripe payments</div>{% endif %}
+    <h1>Hire shoppers. See if they would buy.</h1>
+    <p class="lead">Paste an Amazon listing. We pull real OPeRA shoppers and shopping tasks, find competing listings automatically, and return buy / maybe / no with rationale.</p>
+    {% if examples %}
+    <label>Try an example <span class="hint">real OPeRA product + the persona type that shopped it</span></label>
+    <div class="examples">
+      {% for ex in examples %}
+      <button type="button" class="example"
+        data-url="{{ ex.url }}"
+        data-task="{{ ex.task_id }}"
+        data-seeds="{{ ex.seed_ids | join(',') }}"
+        data-types="{{ ex.persona_types | join(', ') }}">
+        <strong>{{ ex.product }}</strong>
+        <span>{{ ex.primary_persona_type }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <form id="run-form" method="post" action="/panel">
+      <div class="field">
+        <label for="task_id">OPeRA shopping task <span class="hint">real search queries from the dataset</span></label>
+        <select id="task_id" name="task_id">
+          <option value="">Custom — use the brief below</option>
+          {% for t in tasks %}
+          <option value="{{ t.id }}" data-brief="{{ t.brief | e }}" data-query="{{ t.query | e }}" data-url="{% if t.asins %}https://www.amazon.com/dp/{{ t.asins[0] }}{% else %}{{ t.search_url | e }}{% endif %}" {% if selected_task == t.id %}selected{% endif %}>{{ t.query }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="url">Your product URL</label>
+        <input id="url" name="url" placeholder="https://www.amazon.com/dp/..." value="{{ url or 'https://amazon.com' }}" required />
+      </div>
+      <div class="field">
+        <label for="competitors">Competitor URLs <span class="hint">leave blank to auto-find up to 4</span></label>
+        <textarea id="competitors" name="competitors" placeholder="Leave blank — we will find competitors from this listing and persona.">{{ competitors or "" }}</textarea>
+        <button type="button" id="find-btn" class="secondary">Find competitors now</button>
+        <p class="hint" id="find-status"></p>
+      </div>
+      <div class="field">
+        <label for="brief">What should they decide?</label>
+        <textarea id="brief" name="brief">{{ brief or "Would you buy this product? Compare it to the competitors. Say buy, maybe, or no, and why." }}</textarea>
+      </div>
+      <div class="field">
+        <label>Shopper model <span class="hint">who drives the browser + verdict</span></label>
+        <div class="model-grid">
+          {% for m in model_profiles %}
+          <label class="model-opt">
+            <input type="radio" name="model_profile" value="{{ m.id }}" {% if m.id == selected_model %}checked{% endif %} />
+            <span>
+              <strong>{{ m.label }}</strong>
+              <span>{{ m.hint }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="field">
+        <label for="persona-search">Find this kind of shopper</label>
+        <div class="search-row">
+          <input id="persona-search" type="text" placeholder="e.g. PhD student, tight budget, reads reviews" />
+          <button type="button" id="persona-search-btn" class="secondary" style="margin-top:0;">Search</button>
+        </div>
+        <p class="hint" id="persona-search-status"></p>
+        <div class="search-results" id="persona-search-results"></div>
+      </div>
+      <div class="field">
+        <label>OPeRA shoppers <span class="hint">one selected by default; check more to run in parallel</span></label>
+        <div class="grid">
+          {% for p in personas %}
+          <label class="persona">
+            <input type="checkbox" name="personas" value="{{ p.id }}" {% if p.id in selected %}checked{% endif %} />
+            <span>
+              <strong>{{ p.label }}</strong>
+              <span>{{ p.city or p.employment }} · {{ p.budget }} · {{ p.session_count }} sessions</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% if terac %}
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" name="launch_terac" value="1" />
+          <span>Also launch a Terac study for real humans matching your search (<a href="https://terac.com/atelier-msuo0cw0" target="_blank" rel="noopener">Atelier</a> · needs PUBLIC_BASE_URL).</span>
+        </label>
+      </div>
+      {% endif %}
+      <button id="run-btn" type="submit">Run panel</button>
+    </form>
+    {% if stripe_ready %}
+    <p class="note">
+      <strong>Pay for a live study:</strong>
+      <a href="/pay">Stripe checkout</a> — use the same link for every customer today (hackathon revenue tracking).
+    </p>
+    {% endif %}
+    <p class="note">
+      Each shopper opens Chrome, walks the listings, and files a verdict. A 5-shopper panel usually takes several minutes.
+    </p>
+  </main>
+  <script>
+    const taskSel = document.getElementById("task_id");
+    const urlInput = document.getElementById("url");
+    const brief = document.getElementById("brief");
+    const competitors = document.getElementById("competitors");
+    const findBtn = document.getElementById("find-btn");
+    const findStatus = document.getElementById("find-status");
+    const personaSearch = document.getElementById("persona-search");
+    const personaSearchBtn = document.getElementById("persona-search-btn");
+    const personaSearchStatus = document.getElementById("persona-search-status");
+    const personaSearchResults = document.getElementById("persona-search-results");
+
+    taskSel.addEventListener("change", function () {
+      const opt = taskSel.selectedOptions[0];
+      if (!opt || !opt.value) return;
+      if (opt.dataset.brief) brief.value = opt.dataset.brief;
+      if (opt.dataset.url) urlInput.value = opt.dataset.url;
+    });
+
+    document.querySelectorAll(".example").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        urlInput.value = btn.dataset.url || "";
+        if (btn.dataset.task) taskSel.value = btn.dataset.task;
+        const opt = taskSel.selectedOptions[0];
+        if (opt && opt.dataset.brief) brief.value = opt.dataset.brief;
+        const seeds = (btn.dataset.seeds || "").split(",").filter(Boolean);
+        document.querySelectorAll('input[name="personas"]').forEach(function (box) {
+          box.checked = seeds.includes(box.value);
+        });
+      });
+    });
+
+    findBtn.addEventListener("click", async function () {
+      findBtn.disabled = true;
+      findStatus.textContent = "Searching Amazon…";
+      try {
+        const persona = document.querySelector('input[name="personas"]:checked');
+        const params = new URLSearchParams({
+          url: urlInput.value,
+          query: (taskSel.selectedOptions[0] && taskSel.selectedOptions[0].dataset.query) || "",
+        });
+        if (persona) params.set("persona", persona.value);
+        const res = await fetch("/competitors?" + params.toString());
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Lookup failed");
+        const urls = (data.competitors || []).map((c) => c.url);
+        competitors.value = urls.join("\n");
+        const names = (data.competitors || []).map((c) => c.title || c.asin).filter(Boolean);
+        findStatus.textContent = urls.length
+          ? `Found ${urls.length} other listing${urls.length === 1 ? "" : "s"} for “${data.product_title || data.query}”: ${names.join(" · ")}`
+          : "No other-brand competitors found — paste URLs or the panel will search while it runs.";
+      } catch (err) {
+        findStatus.textContent = err.message || "Could not find competitors.";
+      }
+      findBtn.disabled = false;
+    });
+
+    function renderPersonaHits(data) {
+      personaSearchResults.innerHTML = "";
+      const opera = data.opera || data.results || [];
+      for (const row of opera) {
+        const hit = document.createElement("div");
+        hit.className = "hit";
+        hit.innerHTML = `<strong>${row.label || row.name || "Shopper"}</strong>${row.bio ? row.bio.slice(0, 140) + "…" : ""}`;
+        hit.addEventListener("click", () => {
+          const box = document.querySelector(`input[name="personas"][value="${row.id}"]`);
+          if (box) {
+            box.checked = true;
+            box.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        });
+        personaSearchResults.appendChild(hit);
+      }
+      const terac = data.terac || {};
+      if (terac.message) {
+        const note = document.createElement("p");
+        note.className = "hint";
+        note.textContent = terac.message + (terac.atelier_url ? ` · ${terac.atelier_url}` : "");
+        personaSearchResults.appendChild(note);
+      }
+    }
+
+    async function runPersonaSearch() {
+      const q = (personaSearch.value || "").trim();
+      if (!q) return;
+      personaSearchBtn.disabled = true;
+      personaSearchStatus.textContent = "Searching OPeRA + Terac…";
+      try {
+        const res = await fetch(`/api/terac/audience?q=${encodeURIComponent(q)}&limit=8`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Search failed");
+        renderPersonaHits(data);
+        personaSearchStatus.textContent = `${(data.opera || []).length} OPeRA match${(data.opera || []).length === 1 ? "" : "es"}`;
+      } catch (err) {
+        personaSearchStatus.textContent = err.message || "Search failed";
+      }
+      personaSearchBtn.disabled = false;
+    }
+
+    personaSearchBtn.addEventListener("click", runPersonaSearch);
+    personaSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        runPersonaSearch();
+      }
+    });
+
+    document.getElementById("run-form").addEventListener("submit", function () {
+      const btn = document.getElementById("run-btn");
+      btn.disabled = true;
+      btn.textContent = "Hiring shoppers…";
+    });
+  </script>
+</body>
+</html>

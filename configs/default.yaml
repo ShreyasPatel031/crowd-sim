@@ -1,0 +1,45 @@
+seed: 42
+
+dataset:
+  hf_id: NEU-HAI/OPeRA
+  config: filtered_action
+  # official: HuggingFace OPeRA-test (90 sessions / 992 actions), val carved from train
+  # random: 80/10/10 session split over all filtered sessions
+  split_mode: official
+  train_ratio: 0.80
+  val_ratio: 0.10
+  test_ratio: 0.10
+
+converter:
+  include_first_action: true
+  include_rationale: false
+  max_history_steps: 4
+  # candidates: list every named element (label-free, what the live agent sees)
+  # window: splice a window around the gold element (leaks the label; old runs only)
+  observation_mode: candidates
+  max_current_html_chars: 150000
+  max_label_chars: 90
+  max_history_html_chars: 800
+
+model:
+  name: Qwen/Qwen2.5-7B-Instruct
+  max_seq_len: 4096
+
+train:
+  output_dir: outputs/qwen25-7b-opera-qlora
+  epochs: 2
+  learning_rate: 2.0e-5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  warmup_ratio: 0.03
+  logging_steps: 10
+  save_steps: 200
+  max_seq_len: 4096
+
+eval:
+  max_new_tokens: 128
+  temperature: 0.0
+  max_examples: null

@@ -1,0 +1,123 @@
+[
+  {
+    "session_id": "sess_shoes",
+    "action_id": "s1a1",
+    "timestamp": "2025-01-01T10:00:01Z",
+    "action_type": "input",
+    "click_type": "",
+    "semantic_id": "nav_bar.search_input",
+    "input_text": "running shoes",
+    "simplified_html": "<html><head><title>Amazon.com</title></head><body><input name=\"nav_bar.search_input\" value=\"\"><input name=\"nav_bar.search_button\" type=\"submit\" value=\"Go\"></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_shoes",
+    "action_id": "s1a2",
+    "timestamp": "2025-01-01T10:00:08Z",
+    "action_type": "click",
+    "click_type": "product_link",
+    "semantic_id": "product_4",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Amazon.com : running shoes</title></head><body><div name=\"product_4\">Trail Runner</div><div name=\"product_4.view_product\">View</div></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_shoes",
+    "action_id": "s1a3",
+    "timestamp": "2025-01-01T10:00:20Z",
+    "action_type": "click",
+    "click_type": "review",
+    "semantic_id": "reviews",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Trail Runner</title></head><body><div name=\"reviews\">Customer reviews</div><div name=\"add_to_cart\">Add to Cart</div></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_shoes",
+    "action_id": "s1a4",
+    "timestamp": "2025-01-01T10:00:40Z",
+    "action_type": "terminate",
+    "click_type": "",
+    "semantic_id": "",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Trail Runner reviews</title></head><body><div name=\"reviews\">Customer reviews</div></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_mug_train",
+    "action_id": "s2a1",
+    "timestamp": "2025-01-02T10:00:01Z",
+    "action_type": "input",
+    "click_type": "",
+    "semantic_id": "nav_bar.search_input",
+    "input_text": "coffee mug",
+    "simplified_html": "<html><head><title>Amazon.com</title></head><body><input name=\"nav_bar.search_input\"></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_mug_train",
+    "action_id": "s2a2",
+    "timestamp": "2025-01-02T10:00:10Z",
+    "action_type": "click",
+    "click_type": "purchase",
+    "semantic_id": "add_to_cart.buy_now",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Coffee Mug</title></head><body><div name=\"add_to_cart.buy_now\">Buy Now</div></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_lamp_val",
+    "action_id": "s3a1",
+    "timestamp": "2025-01-03T10:00:01Z",
+    "action_type": "input",
+    "click_type": "",
+    "semantic_id": "nav_bar.search_input",
+    "input_text": "desk lamp",
+    "simplified_html": "<html><head><title>Amazon.com</title></head><body><input name=\"nav_bar.search_input\"></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_lamp_val",
+    "action_id": "s3a2",
+    "timestamp": "2025-01-03T10:00:12Z",
+    "action_type": "terminate",
+    "click_type": "",
+    "semantic_id": "",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Amazon.com : desk lamp</title></head><body><div name=\"product_1\">Lamp</div></body></html>",
+    "hf_split": "train"
+  },
+  {
+    "session_id": "sess_heldout",
+    "action_id": "s4a1",
+    "timestamp": "2025-01-04T10:00:01Z",
+    "action_type": "input",
+    "click_type": "",
+    "semantic_id": "nav_bar.search_input",
+    "input_text": "yoga mat",
+    "simplified_html": "<html><head><title>Amazon.com</title></head><body><input name=\"nav_bar.search_input\"></body></html>",
+    "hf_split": "test"
+  },
+  {
+    "session_id": "sess_heldout",
+    "action_id": "s4a2",
+    "timestamp": "2025-01-04T10:00:09Z",
+    "action_type": "click",
+    "click_type": "product_link",
+    "semantic_id": "search_results.yoga_mat.view_product",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Amazon.com : yoga mat</title></head><body><div name=\"search_results.yoga_mat.view_product\">Yoga Mat</div></body></html>",
+    "hf_split": "test"
+  },
+  {
+    "session_id": "sess_heldout",
+    "action_id": "s4a3",
+    "timestamp": "2025-01-04T10:00:30Z",
+    "action_type": "terminate",
+    "click_type": "",
+    "semantic_id": "",
+    "input_text": "",
+    "simplified_html": "<html><head><title>Yoga Mat</title></head><body><div name=\"add_to_cart\">Add to Cart</div></body></html>",
+    "hf_split": "test"
+  }
+]

@@ -1,0 +1,262 @@
+Beyond Believability: Accurate Human Behavior Simulation with Fine-Tuned LLMs
+
+# Beyond Believability: Accurate Human Behavior Simulation with Fine-Tuned LLMs
+
+Yuxuan Lu1,2, Jing Huang1, Yan Han1, Sisong Bei1, Yaochen Xie1, Dakuo Wang1,2, Zheshen Wang1, Qi He1 1Amazon.com, Inc., 2Northeastern University Correspondence: lu.yuxuan@northeastern.edu, d.wang@northeastern.edu
+
+###### Abstract
+
+Recent research shows that LLMs can simulate “believable” human behaviors to power LLM agents via prompt-only methods. In this work, we focus on evaluating and improving LLM’s objective “accuracy” rather than the subjective “believability” in the web action generation task, leveraging a large-scale, real-world dataset collected from online shopping human actions. We present the first comprehensive quantitative evaluation of state-of-the-art LLMs (e.g., DeepSeek-R1, Llama, and Claude) on the task of web action generation. Our results show that fine-tuning LLMs on real-world behavioral data substantially improves their ability to generate actions compared to prompt-only methods. Furthermore, incorporating synthesized reasoning traces into model training leads to additional performance gains, demonstrating the value of explicit rationale in behavior modeling. This work establishes a new benchmark for evaluating LLMs in behavior simulation and offers actionable insights into how real-world action data and reasoning augmentation can enhance the fidelity of LLM agents.
+
+\UseTblrLibrary
+
+booktabs \newmintinline[code]html
+
+Beyond Believability: Accurate Human Behavior Simulation with Fine-Tuned LLMs
+
+Yuxuan Lu1,2, Jing Huang1, Yan Han1, Sisong Bei1, Yaochen Xie1, Dakuo Wang1,2, Zheshen Wang1, Qi He1 1Amazon.com, Inc., 2Northeastern University Correspondence: lu.yuxuan@northeastern.edu, d.wang@northeastern.edu
+
+## 1 Introduction
+
+Recent advances in large language models (LLMs) have enabled the simulation of “believable” human behavior across a range of applications, including web navigation actions Gur et al. (2023); Zhou et al. (2024), social interaction behaviors Park et al. (2023), interpersonal trust behaviors Xie et al. (2024), and user interface interactions Taeb et al. (2024). These developments have sparked growing interest in using LLMs to power agentic systems that emulate human behaviors (LLM Agent) Chen et al. (2025). Despite these successes, current evaluations Park et al. (2023) primarily emphasize subjective measures of “believability” (“how much people feel it is like a human”) instead of the objective “accuracy” (“how much it acts like a human”). The most relevant works that measure the objective model accuracy focus only on the final outcome of a task (e.g., purchasing the final product or not Yao et al. (2023), or ultimately trusting the partner or not Xie et al. (2024)), rather than rigorously evaluating whether the generated sequence of actions mirrors authentic human behavior or not. Consequently, the field currently lacks a robust and quantitative understanding for assessing LLMs at the process-centric, action-level simulation of human behaviors.
+
+Figure 1: Overview of the web action generation task. The model takes the currently observed t and a sequence of previous <context, reasoning, action>1:t-1 as input, and generates the next <reasoning, action>t as output. Because the real-world human behavior dataset does not have groundtruth reasoning, we generate synthesized reasoning trace to complement the <context, action> pair.
+
+In this paper, we focus specifically on the human behavior simulation task, which is to generate the next most likely user action based on the current observation and the history of past actions. For instance, in an online shopping scenario, the model observes the current webpage context (e.g., a product list) and the user’s action history (e.g., previous clicks or queries), and generates the next plausible action a human would take. Real human users often implicitly form reasoning traces behind their action behaviors Cao et al. (2023).
+
+To bridge this gap, our work provides the first systematic evaluation of SOTA LLMs’ accuracy in process-centric, action-level behavior simulation tasks. We leverage a large-scale, real-world dataset consisting of 31,865 user sessions of 3,526 users from an online shopping platform. Each session (Figure 1) comprises a series of timestamp-aligned <context, action> pairs, where the context reflects the webpage observed by the user (e.g., product views, filter states), and the action denotes user inputs such as clicks, searches, or session termination actions. In total, the dataset has 230,965 user actions, and the final outcomes of the sessions include 4,432 purchase actions and 27,433 session termination actions. This dataset enables us to rigorously evaluate how accurately various LLMs can generate human-like behaviors at the action level.
+
+Beyond evaluation, our dataset uniquely positions us to fine-tune open-source LLMs to enhance their accuracy in behavior simulation tasks. While prior work has primarily relied on prompt-based approaches, we show that model adaptation through fine-tuning leads to significantly better accuracy in action generation and outcome prediction. Furthermore, drawing inspiration from reasoning-augmented modeling DeepSeek-AI et al. (2025), we hypothesize that exposing models to intermediate reasoning traces–even if synthetically generated–can enhance their ability to simulate human behavior. To test this hypothesis, we augment our dataset with synthesized reasonings from action traces using Claude 3.5 Sonnet and fine-tune models using this augmented data (<context, action, reasoning> triplets) to learn how to generate not only accurate actions but also the underlying reasoning. Our results show that this reasoning-augmented fine-tuning further boosts model performance, highlighting the importance of modeling not just what humans do, but also why they do it.
+
+In summary, this paper has two contributions:
+
+We provide the first quantitative, process-centric evaluation of SOTA LLMs for simulating human web-action behaviors using real-world data from an online shopping context.
+
+We empirically demonstrate that fine-tuning LLMs with synthesized reasoning traces significantly improves action-generation accuracy, highlighting the value of incorporating explicit reasoning to improve the realism and generalizability of behavior-simulating LLM agent applications.
+
+## 2 Related Works
+
+### 2.1 Simulation of Human Behavior with LLM
+
+The core function of the emerging LLM agent systems is their capability of generating human behaviors, in which a model takes a static user persona (e.g., preferences, demographics, or shopping habits), and the session data (e.g., a sequence of actions) as input to generate the next user action. Such systems have been extensively utilized and tested to simulate human behavior in a variety of scenarios. Park et al. (2023) simulated social behavior using generative agents in a virtual town, producing “believable” interactions. Xie et al. (2024) studied LLM agents in Trust Games to assess their ability to model human trust behavior. Park et al. (2024) used LLMs to simulate responses from 1,052 individuals in a social science survey. To simulate UI interaction, Lu et al. (2025) proposed UXAgent, enabling LLMs to operate within web environments for simulated usability testing. Collectively, these studies underscore the growing potential of LLM-driven simulations to model and simulate complex, interpretable human behaviors.
+
+However, the evaluation of these works remains limited in scope. Some focus on the subjective believability of process-centric action traces. For instance, Lu et al. (2025) conducted qualitative interviews to assess participants’ perceptions of the realism of their UXAgent system. Similarly, Park et al. (2023) proposed an evaluation framework that identified emergent social behaviors among generative agents. On the other hand, works that pursue objective evaluation often do so in a single-shot, outcome-centric manner. Zhou et al. (2024) introduced WebArena, a controlled environment for benchmarking web agents based on task completion rates. ReAct Yao et al. (2023) measured success rates in simulation environments, overlooking the accuracy of step-by-step behavior. To date, no prior work has focused on objectively evaluating process-centric action traces—that is, assessing whether a model’s sequence of decisions faithfully aligns with human behavior at each step.
+
+### 2.2 Reasoning in Human Behavior Simulation
+
+Building on the chain-of-thought prompting strategy Wei et al. (2023), numerous studies have incorporated reasoning mechanisms into human behavior simulation. Park et al. (2023) pioneered agents equipped with reflection modules that synthesize memory and social context to support introspective decision-making. ReAct Yao et al. (2023) prompted models to generate reasoning traces and actions separately, improving task success rates in online shopping and gaming environments. Gur et al. (2023) proposed WebAgent, which uses a dedicated reasoning model to plan sub-steps in web browsing tasks, enhancing control and planning in real-world browser simulations. Beyond single-agent reasoning, systems such as ChatDev Qian et al. (2024) and RepoAgent Luo et al. (2024) adopt multi-agent setups, where agents with specialized roles (e.g., programmers, testers) engage in collaborative dialogues via structured prompts. These communicative exchanges support more robust collective reasoning, demonstrating how coordination between agents can improve the quality of generated reasoning traces.
+
+However, the aforementioned works incorporate reasoning using prompt-only approaches for the action generation task. Whether reasoning can improve performance in fine-tuning settings remains an open question. More critically, there is currently no ready-to-use dataset designed specifically for human behavior simulation that includes both reasoning traces and corresponding actions. To address a similar cold-start problem in reinforcement learning, DeepSeek-AI et al. (2025) constructed a small-scale dataset of long reasoning traces by synthesizing examples through few-shot prompting, followed by reflection and verification. Inspired by their methodology, we apply a similar strategy to synthesize reasoning traces in our domain. This enables us to investigate whether integrating reasoning into fine-tuning can enhance a model’s ability to simulate human behavior more accurately.
+
+## 3 Method
+
+### 3.1 Task Definition
+
+In this section, we formally define the proposed human behavior simulation task: in the online shopping scenario, a shopping session is represented as a sequence of user actions a1⁢…⁢t⁢…⁢Nsubscript𝑎1…𝑡…𝑁a_{1\dots t\dots N}italic_a start_POSTSUBSCRIPT 1 … italic_t … italic_N end_POSTSUBSCRIPT, always starting with a search action and concluding with either a product purchase action or a termination action (i.e., the user closing the browser window).
+
+At each time step t𝑡titalic_t, the model is tasked with generating both the reasoning rtsubscript𝑟𝑡r_{t}italic_r start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT and the next action atsubscript𝑎𝑡a_{t}italic_a start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT. The model input includes the current context ctsubscript𝑐𝑡c_{t}italic_c start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT (what the user currently observes), a sequence of previous contexts (what the user has observed) c1⁢…⁢t−1subscript𝑐1…𝑡1c_{1\dots t-1}italic_c start_POSTSUBSCRIPT 1 … italic_t - 1 end_POSTSUBSCRIPT, a sequence of previous actions a1⁢…⁢t−1subscript𝑎1…𝑡1a_{1\dots t-1}italic_a start_POSTSUBSCRIPT 1 … italic_t - 1 end_POSTSUBSCRIPT (what the user has done), and the corresponding reasoning trace r1⁢…⁢t−1subscript𝑟1…𝑡1r_{1\dots t-1}italic_r start_POSTSUBSCRIPT 1 … italic_t - 1 end_POSTSUBSCRIPT (why the user had that action) within the same session. Formally, the model learns a function f𝑓fitalic_f such that:
+
+| f⁢(c1⁢…⁢t,a1⁢…⁢t−1,r1⁢…⁢t−1)=rt,at𝑓subscript𝑐1…𝑡subscript𝑎1…𝑡1subscript𝑟1…𝑡1subscript𝑟𝑡subscript𝑎𝑡f(c_{1\dots t},a_{1\dots t-1},r_{1\dots t-1})=r_{t},a_{t}italic_f ( italic_c start_POSTSUBSCRIPT 1 … italic_t end_POSTSUBSCRIPT , italic_a start_POSTSUBSCRIPT 1 … italic_t - 1 end_POSTSUBSCRIPT , italic_r start_POSTSUBSCRIPT 1 … italic_t - 1 end_POSTSUBSCRIPT ) = italic_r start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT , italic_a start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT |
+| --- |
+
+#### Context
+
+The Context, also referred to as the “observation space” of the web environment, represents the information available on a web page, including textual content, metadata, visual elements, and structural data. This context is designed to capture how users observe web pages, enabling an agent to process relevant information for navigation, retrieval, and interaction.
+
+Following recent work Lu et al. (2025), we adopt a structured representation of the web page using a simplified HTML format, which preserves key structural elements while filtering out irrelevant details such as scripts and styling information. To facilitate precise action execution, each interactable element (such as links, buttons, and input fields) is assigned a unique hierarchical “name” that incorporates parent-child relationships within the webpage. These names serve as identifiers in the action space, ensuring that the agent can correctly reference and interact with specific elements. A description definition of our context design can be found in Appendix B.
+
+#### Reasoning
+
+Reasoning trace refers to a natural language description that articulates the reasoning behind an action. For example, if the context is a search results page displaying a list of cloth, and the generated action is clicking on the \code"4 stars and up" filter, the generated reasoning might be: “I want to find a comfortable piece of clothing, so I’m looking for options with high ratings.” This explanation provides insight of the user’s reasoning process, enhancing the transparency of the model’s generations.
+
+#### Action
+
+Previous research has explored various approaches to defining action spaces, including task-specific semantic actions such as “searching”, “adding items to a cart”, and “making purchases” Yao et al. (2022), as well as browser-level interactions like “typing” and “clicking” Lu et al. (2025).
+
+To ensure the adaptability of our framework beyond online shopping tasks, we define the action space at the level of raw browser actions, rather than at the level of task-specific semantics. The action space of our model consists of three fundamental browser operations: \codeclick, \codetype_and_submit, and \codeterminate. This abstraction allows the system to generalize across different environments while maintaining task flexibility.
+
+To comprehensively evaluate the performance of our model, we also evaluate the final outcomes of the shopping session. The final outcomes consist of either a purchase action or a termination action. Since the final outcome is always the last action in a session, it marks the conclusion of the user’s shopping journey. This evaluation setup allows for a more detailed analysis of how accurately the model can generate both process-centric action-level behaviors and the final shopping outcomes.
+
+### 3.2 Synthesized Reasoning Trace
+
+Reasoning traces are crucial for understanding users’ action choices but are difficult to collect; thus, they are often not available in behavioral datasets. We employ a reasoning synthesis pipeline to generate them using an LLM. To guide the reasoning generation process, we provide the LLM with the observation context and the corresponding action. Additionally, we record a couple of real human customers’ think-aloud shopping sessions as in-context learning examples.
+
+The LLM is then prompted to generate a free-text reasoning explaining the user’s decision. This approach ensures that the reasoning traces are both coherent with the action and reflective of human reasoning. By bridging the gap between raw behavioral data and the reasoning processes, our method enhances the explainability of the model.
+
+### 3.3 Model Architecture
+
+To incorporate these enriched action traces, we build on existing pre-trained LLMs as our base models. The input to the model consists of two components: (1) a sequence of historical contexts (what the user observed), and (2) the corresponding actions and reasoning trace (what the user did and why). The model is trained to generate the next reasoning and action, enabling it to simulate human behavior with greater fidelity.
+
+During the training stage, the model receives the full sequence of a user session—including context, reasoning, and action—as a single concatenated input. The training objective is to minimize the next-token prediction loss for the reasoning and action tokens, while the loss for the context tokens is masked out. Subsequently, in the evaluation stage, the model is provided with historical context and past reasoning traces and actions. The model first generates the reasoning for the next action; then, based on the generated reasoning, it generates the next action.
+
+## 4 Experiments
+
+### 4.1 Dataset Construction
+
+Our training dataset was constructed using data from one of the largest e-commerce platforms globally. The dataset contains 31,865 user sessions from 3,526 users in the online shopping scenario, comprising 230,965 user actions. The session’s final outcome includes 4,432 purchase actions and 27,433 session termination actions. We leveraged our data synthesis pipeline detailed in Section 3.2 to generate the synthesized reasoning for each action based on the context using Claude-3.5-Sonnet.
+
+We extracted pairs of user actions and contextual information from the cleaned data. These raw logs were then structured into the standardized format defined in Section 3.1.
+
+### 4.2 Evaluation and Metrics
+
+#### Evaluation Dataset
+
+We used a subset of the dataset that was not used during training as the test set, ensuring that no user sessions in the test set were seen by the model during fine-tuning. To create test cases, we took the second and all subsequent actions within each session—excluding the first action, since it lacks any preceding context. For each test case, the model was provided with the historical context, along with all previous actions and reasoning trace in the same session, and tasked with predicting both the next reasoning and the corresponding action.
+
+This setup allows us to evaluate the model’s performance in a sequential reasoning setting, closely mirroring how real users behave during the session. This process resulted in a total of 932 test cases.
+
+#### Baseline Method
+
+To compare against our fine-tuned models, we evaluated a set of strong instruction-tuned LLMs under the in-context learning (ICL) setting (a.k.a., prompt-based setting). Specifically, we used several variants of Claude, LLaMA, and Mistral as representatives for general-purpose pre-trained LLMs, along with DeepSeek-R1 as a representative for reasoning LLMs.
+
+In this setup, each model was provided with the historical context and previous user actions from the session, and prompted to generate both the next reasoning and the next action. The generated actions were used to compute macro accuracy for evaluation. These baselines reflect the commonly adopted approach of using powerful LLMs without domain-specific fine-tuning, allowing us to directly assess the impact of fine-tuning on realistic human behavior simulation.
+
+{booktabs}
+
+colspec = X[l]cc, cells=m, cell7,9,111=r,font=, \topruleModel & Action Gen. (Acc.) Outcome (F1) \midruleLlama 3.1 70B 8.19% 12.69% Claude 3.5 Sonnet 9.72% 15.91% Claude 3.7 Sonnet 9.34% 12.81% DeepSeek-R1 11.86% 20.01% \midruleQwen2.5-7B 17.26% 33.86% w/o reasoning 16.67% 26.92% Mistral-7B-v0.3 15.84% 30.12% w/o reasoning 14.17% 17.99% Llama-3.2-3B 15.77% 33.99% w/o reasoning 9.31% 4.73% \bottomrule
+
+Table 1: Model performance. The top four models are prompt-only, and the bottom three models are fine-tuned with or without synthesized reasoning traces. The table shows model accuracy in two tasks: the process-centric action generation task and the outcome-centric final purchase prediction task of the session. More models’ performances are in the Appendix.
+
+#### Evaluation Metrics
+
+We evaluate model performance across two key dimensions: final outcome prediction and action generation.
+
+For final outcome prediction, we focus on the \codeterminate and \codepurchase actions, which mark the end of a shopping session. The model is given the full session history as input and is tasked with predicting the next (which is also the final) action. We measure performance using the F1 score, capturing the model’s ability to distinguish between these two critical outcomes.
+
+For action generation accuracy, we evaluate whether the model can accurately generate user actions during the process. We use an exact match criterion, where a generation is considered correct only if the action type, action target (e.g., search box or product link), and action attribute (if applicable, such as search keyword) exactly match the ground truth. To obtain the final score, we first compute the average per-session accuracy and then take the mean across all sessions to ensure a fair evaluation across different sessions and behaviors.
+
+### 4.3 Experimental Setup
+
+We fine-tuned multiple language models to evaluate their performance on the action generation task. The models used in our experiments include:
+
+•
+
+Fine-Tuned Models: Different versions of Llama 3.2, Qwen 2.5, and Mistral.
+
+•
+
+Baseline Models: Different versions of Claude, Llama, Mistral, and DeepSeep-R1.
+
+- C Prompts
+
+All fine-tuned models were trained using the same dataset and pipeline to ensure a fair comparison. Hyperparameters—including learning rate, batch size, and the number of training epochs—can be found in Appendix A.
+
+### 4.4 Evaluation Results and Analysis
+
+Figure 2: Action categories of human groundtruth, and generated by prompt-based Claude and by our fine-tuned models.
+
+Following previous works Lutz et al. (2024); Deng et al. (2023), we evaluate the performance of prompt-based LLMs in simulating human behavior on shopping scenarios, with results presented in Table 1. Our findings indicate that while state-of-the-art LLMs have demonstrated strong capabilities in various tasks and domains, their ability to accurately simulate human behaviors remains limited. Compared to general instruction-tuned models, reasoning-focused DeepSeek-R1 achieved a higher accuracy of 11.86% in the action generation task, suggesting that incorporating reasoning mechanisms offers some advantage. Similarly, for final outcome prediction, DeepSeek-R1 attained an F1 score of 20.01%, outperforming other baseline models. These results highlight the challenges of human behavior simulation and suggest that reasoning models may provide incremental improvements, though significant gaps still remain.
+
+We then fine-tuned LLaMA 3.2, Qwen 2.5, and Mistral using our training dataset. The results demonstrate that fine-tuning LLMs with action traces and synthesized reasoning traces significantly enhances performance. Qwen 2.5-7B achieved 17.26% accuracy in action generation, surpassing DeepSeek-R1 by 5.4%. Similarly, LLaMA 3.2-3B reached an F1 score of 33.99% on the final outcome prediction task, further confirming the effectiveness of fine-tuning. These findings underscore that incorporating domain-specific fine-tuning with synthesized reasoning traces leads to substantial improvements in the accuracy of human behavior simulation.
+
+We also visualize the distribution of user actions across different models compared to real human behavior in Figure 2. The fine-tuned models exhibit a distribution that more closely aligns with human action patterns, capturing a more natural balance between search, product clicks, and navigation actions. In contrast, Claude 3.5 Sonnet displays a noticeably higher purchase rate while conducting only a single search per session, diverging from actual user behavior. This misalignment suggests that fine-tuning not only improves accuracy but also helps models better replicate realistic shopping behaviors rather than over-prioritizing purchase actions.
+
+### 4.5 Ablation Study
+
+To evaluate the impact of synthesized reasoning traces on the model’s action generation capability, we conducted an ablation experiment. In the “w/o reasoning” settings, we removed the reasoning from the model input, and we trained and evaluated the model using only the context and action. This experiment helps us to learn whether learning from synthesized reasoning traces improves the model’s ability to generate user actions.
+
+From Table 1, most models exhibited a significant drop in action generation accuracy when trained without reasoning traces, highlighting the importance of explicit reasoning in guiding predictions. A similar decline was observed in final outcome prediction, with F1 scores consistently decreasing across models. For instance, Qwen2.5-7B achieved a 33.86% F1 score with reasoning traces but dropped to 26.92% without, demonstrating that reasoning traces play a crucial role in improving model performance. These results confirm that incorporating synthesized reasoning traces enhances both action generation and final outcome modeling, reinforcing their value in fine-tuning for human behavior simulation.
+
+### 4.6 Discussion
+
+Existing research has shown that large language models (LLMs) can generate highly “believable” human behavior simulations, supporting various interactive and social simulation scenarios. However, our results indicate that general-purpose pretrained LLMs, despite their strong ability in a variety of tasks and applications, struggle to accurately generate user actions. This is reflected in their performance—DeepSeek-R1 and Claude 3.5 Sonnet v2, for example, achieved only 11.86% and 11.69% accuracy, respectively, on action generation. These findings suggest that while LLMs may appear human-like in language-based tasks and produce plausible and believable outputs, accurate behavioral prediction requires additional fine-tuning and explicit alignment with real human actions.
+
+Our experiments further highlight the critical role of synthesized reasoning traces in improving action generation. Removing reasoning traces from the training data led to a notable performance drop across all models. Additionally, most models showed measurable improvements when trained with reasoning traces, reinforcing the importance of providing explicit reasoning signals. These results suggest that reasoning traces not only enhance model interpretability but also serve as a guiding mechanism, enabling the model to make more contextually appropriate and human-aligned decisions.
+
+Overall, our findings emphasize the necessity of domain-specific fine-tuning using enriched, context-aware human behavioral data. By incorporating synthesized reasoning traces, we bridge the gap between the believable yet imprecise predictions of general LLMs and the accurate behavioral simulations required for real-world applications.
+
+While our study demonstrates the effectiveness of fine-tuning LLMs with reasoning traces for human behavior simulation, several future directions remain. Scaling up the dataset could improve robustness and generalization. Integrating user personas may enable more personalized simulations, and reinforcement learning could be used to refine reasoning generation. Finally, incorporating vision-language models (VLMs) may enhance the model’s understanding of graphical interfaces in complex web environments.
+
+## 5 Conclusion
+
+Our study demonstrates that fine-tuning large language models (LLMs) with real-world human behavioral data and synthesized reasoning traces significantly enhances their ability to generate user actions. These results shed light on the future of LLM agent systems to generate accurate and explainable human-like behaviors in online shopping scenarios and beyond.
+
+## 6 Ethical Considerations
+
+Our study has several ethical considerations and limitations that should be considered when interpreting the results. First, we did not conduct human evaluations on the interpretability and usefulness of the generated reasoning trace, limiting our understanding of how well these reasoning traces support human comprehension and trust in the model’s predictions. Second, our experiments were conducted exclusively on a single behavioral task—online shopping—and the generalizability of our findings to other tasks and contexts remains uncertain. Third, we have not yet evaluated the model on real human-annotated datasets containing authentic reasoning traces, making it unclear how well the synthesized reasoning trace aligns with human reasoning. Additionally, the process of generating synthesized reasoning traces may introduce unintended biases, potentially impacting prediction accuracy and interoperability. Finally, to simplify the experimental setup, we limited the action space to basic browser operations such as \codetype and \codeclick. Incorporating more complex interactions—such as scrolling, waiting, or hover actions—would allow for a more realistic simulation of human behavior in web environments and offer deeper insights into how LLMs handle nuanced browser-based simulation.
+
+## References
+
+- Zhou et al. (2024) Shuyan Zhou, Frank F. Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Graham Neubig. 2024. WebArena: A Realistic Web Environment for Building Autonomous Agents. Preprint, arXiv:2307.13854.
+- Zhao et al. (2023) Yanli Zhao, Andrew Gu, Rohan Varma, Liang Luo, Chien-Chin Huang, Min Xu, Less Wright, Hamid Shojanazeri, Myle Ott, Sam Shleifer, Alban Desmaison, Can Balioglu, Pritam Damania, Bernard Nguyen, Geeta Chauhan, Yuchen Hao, Ajit Mathews, and Shen Li. 2023. PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel. Preprint, arXiv:2304.11277.
+- Yao et al. (2023) Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. 2023. ReAct: Synergizing Reasoning and Acting in Language Models. Preprint, arXiv:2210.03629.
+- Yao et al. (2022) Shunyu Yao, Howard Chen, John Yang, and Karthik R. Narasimhan. 2022. WebShop: Towards Scalable Real-World Web Interaction with Grounded Language Agents. In Advances in Neural Information Processing Systems.
+- Xie et al. (2024) Chengxing Xie, Canyu Chen, Feiran Jia, Ziyu Ye, Shiyang Lai, Kai Shu, Jindong Gu, Adel Bibi, Ziniu Hu, David Jurgens, James Evans, Philip Torr, Bernard Ghanem, and Guohao Li. 2024. Can Large Language Model Agents Simulate Human Trust Behavior? Preprint, arXiv:2402.04559.
+- Wei et al. (2023) Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed Chi, Quoc Le, and Denny Zhou. 2023. Chain-of-Thought Prompting Elicits Reasoning in Large Language Models. Preprint, arXiv:2201.11903.
+- Taeb et al. (2024) Maryam Taeb, Amanda Swearngin, Eldon Schoop, Ruijia Cheng, Yue Jiang, and Jeffrey Nichols. 2024. AXNav: Replaying Accessibility Tests from Natural Language. In Proceedings of the 2024 CHI Conference on Human Factors in Computing Systems, CHI ’24, pages 1–16, New York, NY, USA. Association for Computing Machinery.
+- Qian et al. (2024) Chen Qian, Wei Liu, Hongzhang Liu, Nuo Chen, Yufan Dang, Jiahao Li, Cheng Yang, Weize Chen, Yusheng Su, Xin Cong, Juyuan Xu, Dahai Li, Zhiyuan Liu, and Maosong Sun. 2024. ChatDev: Communicative Agents for Software Development. Preprint, arXiv:2307.07924.
+- Park et al. (2024) Joon Sung Park, Carolyn Q. Zou, Aaron Shaw, Benjamin Mako Hill, Carrie Cai, Meredith Ringel Morris, Robb Willer, Percy Liang, and Michael S. Bernstein. 2024. Generative Agent Simulations of 1,000 People. Preprint, arXiv:2411.10109.
+- Park et al. (2023) Joon Sung Park, Joseph O’Brien, Carrie Jun Cai, Meredith Ringel Morris, Percy Liang, and Michael S. Bernstein. 2023. Generative Agents: Interactive Simulacra of Human Behavior. In Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology, UIST ’23, pages 1–22, New York, NY, USA. Association for Computing Machinery.
+- Lutz et al. (2024) Michael Lutz, Arth Bohra, Manvel Saroyan, Artem Harutyunyan, and Giovanni Campagna. 2024. WILBUR: Adaptive In-Context Learning for Robust and Accurate Web Agents. Preprint, arXiv:2404.05902.
+- Luo et al. (2024) Qinyu Luo, Yining Ye, Shihao Liang, Zhong Zhang, Yujia Qin, Yaxi Lu, Yesai Wu, Xin Cong, Yankai Lin, Yingli Zhang, Xiaoyin Che, Zhiyuan Liu, and Maosong Sun. 2024. RepoAgent: An LLM-Powered Open-Source Framework for Repository-level Code Documentation Generation. Preprint, arXiv:2402.16667.
+- Lu et al. (2025) Yuxuan Lu, Bingsheng Yao, Hansu Gu, Jing Huang, Jessie Wang, Laurence Li, Jiri Gesi, Qi He, Toby Jia-Jun Li, and Dakuo Wang. 2025. UXAgent: An LLM Agent-Based Usability Testing Framework for Web Design. Preprint, arXiv:2502.12561.
+- Koh et al. (2024) Jing Yu Koh, Robert Lo, Lawrence Jang, Vikram Duvvur, Ming Lim, Po-Yu Huang, Graham Neubig, Shuyan Zhou, Russ Salakhutdinov, and Daniel Fried. 2024. VisualWebArena: Evaluating Multimodal Agents on Realistic Visual Web Tasks. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 881–905, Bangkok, Thailand. Association for Computational Linguistics.
+- Gur et al. (2023) Izzeddin Gur, Hiroki Furuta, Austin V. Huang, Mustafa Safdari, Yutaka Matsuo, Douglas Eck, and Aleksandra Faust. 2023. A Real-World WebAgent with Planning, Long Context Understanding, and Program Synthesis. In The Twelfth International Conference on Learning Representations.
+- Deng et al. (2023) Xiang Deng, Yu Gu, Boyuan Zheng, Shijie Chen, Samuel Stevens, Boshi Wang, Huan Sun, and Yu Su. 2023. Mind2Web: Towards a Generalist Agent for the Web. In Thirty-Seventh Conference on Neural Information Processing Systems Datasets and Benchmarks Track.
+- DeepSeek-AI et al. (2025) DeepSeek-AI, Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, Peiyi Wang, Xiao Bi, Xiaokang Zhang, Xingkai Yu, Yu Wu, Z. F. Wu, Zhibin Gou, Zhihong Shao, Zhuoshu Li, Ziyi Gao, Aixin Liu, Bing Xue, Bingxuan Wang, Bochao Wu, Bei Feng, Chengda Lu, Chenggang Zhao, Chengqi Deng, Chenyu Zhang, Chong Ruan, Damai Dai, Deli Chen, Dongjie Ji, Erhang Li, Fangyun Lin, Fucong Dai, Fuli Luo, Guangbo Hao, Guanting Chen, Guowei Li, H. Zhang, Han Bao, Hanwei Xu, Haocheng Wang, Honghui Ding, Huajian Xin, Huazuo Gao, Hui Qu, Hui Li, Jianzhong Guo, Jiashi Li, Jiawei Wang, Jingchang Chen, Jingyang Yuan, Junjie Qiu, Junlong Li, J. L. Cai, Jiaqi Ni, Jian Liang, Jin Chen, Kai Dong, Kai Hu, Kaige Gao, Kang Guan, Kexin Huang, Kuai Yu, Lean Wang, Lecong Zhang, Liang Zhao, Litong Wang, Liyue Zhang, Lei Xu, Leyi Xia, Mingchuan Zhang, Minghua Zhang, Minghui Tang, Meng Li, Miaojun Wang, Mingming Li, Ning Tian, Panpan Huang, Peng Zhang, Qiancheng Wang, Qinyu Chen, Qiushi Du, Ruiqi Ge, Ruisong Zhang, Ruizhe Pan, Runji Wang, R. J. Chen, R. L. Jin, Ruyi Chen, Shanghao Lu, Shangyan Zhou, Shanhuang Chen, Shengfeng Ye, Shiyu Wang, Shuiping Yu, Shunfeng Zhou, Shuting Pan, S. S. Li, Shuang Zhou, Shaoqing Wu, Shengfeng Ye, Tao Yun, Tian Pei, Tianyu Sun, T. Wang, Wangding Zeng, Wanjia Zhao, Wen Liu, Wenfeng Liang, Wenjun Gao, Wenqin Yu, Wentao Zhang, W. L. Xiao, Wei An, Xiaodong Liu, Xiaohan Wang, Xiaokang Chen, Xiaotao Nie, Xin Cheng, Xin Liu, Xin Xie, Xingchao Liu, Xinyu Yang, Xinyuan Li, Xuecheng Su, Xuheng Lin, X. Q. Li, Xiangyue Jin, Xiaojin Shen, Xiaosha Chen, Xiaowen Sun, Xiaoxiang Wang, Xinnan Song, Xinyi Zhou, Xianzu Wang, Xinxia Shan, Y. K. Li, Y. Q. Wang, Y. X. Wei, Yang Zhang, Yanhong Xu, Yao Li, Yao Zhao, Yaofeng Sun, Yaohui Wang, Yi Yu, Yichao Zhang, Yifan Shi, Yiliang Xiong, Ying He, Yishi Piao, Yisong Wang, Yixuan Tan, Yiyang Ma, Yiyuan Liu, Yongqiang Guo, Yuan Ou, Yuduan Wang, Yue Gong, Yuheng Zou, Yujia He, Yunfan Xiong, Yuxiang Luo, Yuxiang You, Yuxuan Liu, Yuyang Zhou, Y. X. Zhu, Yanhong Xu, Yanping Huang, Yaohui Li, Yi Zheng, Yuchen Zhu, Yunxian Ma, Ying Tang, Yukun Zha, Yuting Yan, Z. Z. Ren, Zehui Ren, Zhangli Sha, Zhe Fu, Zhean Xu, Zhenda Xie, Zhengyan Zhang, Zhewen Hao, Zhicheng Ma, Zhigang Yan, Zhiyu Wu, Zihui Gu, Zijia Zhu, Zijun Liu, Zilin Li, Ziwei Xie, Ziyang Song, Zizheng Pan, Zhen Huang, Zhipeng Xu, Zhongyu Zhang, and Zhen Zhang. 2025. DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning. Preprint, arXiv:2501.12948.
+- Chen et al. (2025) Chaoran Chen, Bingsheng Yao, Ruishi Zou, Wenyue Hua, Weimin Lyu, Toby Jia-Jun Li, and Dakuo Wang. 2025. Towards a Design Guideline for RPA Evaluation: A Survey of Large Language Model-Based Role-Playing Agents. Preprint, arXiv:2502.13012.
+- Cao et al. (2023) Dongmei Cao, Maureen Meadows, and Xiao Ma. 2023. Thinking fast and slow: A revised SOR model for an empirical examination of impulse buying at a luxury fashion outlet. European Journal of Marketing, 58(1):342–368.
+
+## Appendix A Hyperparameters
+
+Model training was performed on a GPU cluster consisting of NVIDIA H200 GPUs, with each training job utilizing eight nodes, each equipped with eight GPUs, for a total of 64 GPUs, each with 140 GB of GPU memory.
+
+We employed Fully Sharded Data Parallel (FSDP, Zhao et al. (2023)) for efficient training. All sequences were padded or truncated to a context length of 40k tokens. We used a per-device batch size of 1, resulting in a global batch size of 64. The learning rate was set to 2e-5 with a cosine scheduler for adaptive learning rate adjustment. Models were trained for 1 epoch. For example, training Mistral-7B-v0.3 with a 40k token context window in our setup requires approximately 130GB of GPU memory per GPU, which is the largest model we can train.
+
+## Appendix B Context Definition
+
+The Context, also referred to as the “observation space” of the web agent, encompasses all available information on a webpage, including textual content, metadata, visual elements, and structural data. This context is designed to reflect how a human perceives and interprets a webpage, allowing the agent to process relevant features and perform tasks such as navigation, information retrieval, and interaction with page elements.
+
+Previous research has explored various approaches to defining context. Some methods rely on manually structured information Yao et al. (2022), while others utilize accessibility trees Zhou et al. (2024) or raw HTML representations Gur et al. (2023). However, these approaches have notable limitations: manually structured designs require significant human effort to develop parsing rules Yao et al. (2022), while raw HTML-based approaches often contain extraneous information, such as scripts and raw CSS styles, that are not directly relevant to human users.
+
+To ensure the adaptability to unseen websites, we define and implement a simplified HTML format as our context representation. This format removes non-relevant elements such as scripts, CSS, and purely visual components while preserving essential structural information. Using simplified HTML offers several advantages over custom formats or markdown-based representations: (1) important structural elements, such as lists and tables, remain intact, and (2) LLMs are already familiar with the HTML format, eliminating the need to redefine common elements like ‘button’ and ‘input’ in the prompt.
+
+The agent needs to refer to specific elements within the HTML, such as identifying the exact button it intends to click. Since there is no built-in method to uniquely identify HTML elements, prior work has proposed approaches like assigning sequential IDs to elements Koh et al. (2024) or manually defining descriptive names for elements, such as \codesearchbox Yao et al. (2022).
+
+{booktabs}
+
+colspec = lcc, cells=m, cell13,15,17,19,21,23,25,271=r,font=, \topruleModel & Gen. Action (Acc.) Outcome (F1) \midruleLlama 3.1 8B 5.05% 10.87% Llama 3.1 70B 8.19% 12.69% Mixtral 8x7B 5.41% 13.16% DeepSeek-R1 11.86% 20.01% Claude 3.5 Haiku 9.18% 14.77% Claude 3 Opus 6.78% 15.08% Claude 3 Sonnet 8.42% 17.40% Claude 3.5 Sonnet 9.72% 15.91% Claude 3.5 Sonnet v2 11.69% 18.54% Claude 3.7 Sonnet 9.34% 12.81% \midruleQwen2.5-7B 17.26% 33.86% w/o reasoning 16.67% 26.92% Qwen2.5-3B 11.88% 28.52% w/o reasoning 14.53% 22.88% Qwen2.5-1.5B 16.06% 27.69% w/o reasoning 5.03% 5.67% Mistral-7B-v0.3 15.84% 30.12% w/o reasoning 14.17% 17.99% Llama-3.2-3B 15.77% 33.99% w/o reasoning 9.31% 4.73% Llama-3.2-1B 7.53% 15.08% w/o reasoning 11.13% 10.44% \bottomrule
+
+Table 2: Performance comparison of models in different settings.
+
+Following previous work Lu et al. (2025), we assign a unique hierarchical name in natural language to each interactable element, including links, buttons, and input fields. This name is constructed by incorporating the names of all parent nodes. For instance, if a \code tag named \codeview_product resides within a \code named \codecolumbia_shirt, the resulting hierarchical name will be \codecolumbia_shirt.view_product.
+
+## Appendix C Prompts
+
+Reasoning Synthesize Prompt: {minted}[breaklines]text You will be given a customer’s shopping journey on one of the largest e-commerce platforms globally. you will be given the context (what the user is looking at), the action (what the user did), and your job is to predict the user’s rationale for the action. The rationale should follow Here is an example: example For each action in the input, output a rationale. If the action is "terminate", it means that you didn’t find any desired product and you decided to leave the website by closing the browser window.
+
+Baseline model evaluation prompt:
+
+{minted}
+
+[breaklines]markdown Your task is to predict the next action and provide rationale for the action based on the previous actions and context. You need to pretend that you are a user, browsing one of the largest e-commerce platforms globally and searching for a product to purchase. The history action (with details described below) and context will be provided to you. You need to predict the next action and provide rationale for the action. 
+
+# Action Space
+
+An action is represented in JSON format, and there are four primary types of actions:
+
+#### 1. ‘type_and_submit‘: Type text into an input field and immediately submit the form. Equivalent to typing text into an input and pressing enter key.
+
+"type": "type_and_submit", "name": "input_name", "text": "search_text"
+
+#### 2. ‘click‘: Click on a button or clickable element identified by ‘name‘.
+
+"type": "click", "name": "clickable_name"
+
+#### 3. ‘terminate‘: When you are unsatisfied with the current search result and you don’t want to buy anything, use ‘terminate‘ to indicate that you want to close the browser window and terminate the task.
+
+"type": "terminate"
+
+# Context Your context will be an **simplified version** of the raw HTML of the one of the largest e-commerce platforms globally page you are looking at. Some interactable elements will be added a unique "name" attribute, which you can use to identify the element to interact with (click or type_and_submit).
+
+# Rationale
+
+The rationale is a first-person sentence of what you are thinking when you make the action. It should be a short sentence that explains why you are making the action.
+
+# Output Format
+
+You need to predict the next action and provide rationale for the action. Your output should follow a strict JSON form:
+
+"action": // action goes here "type": " ", … , "rationale": " " // rationale goes here, a string
+
+ OUTPUT A SINGLE JSON OBJECT, NOTHING ELSE.

@@ -1,0 +1,16 @@
+.venv/
+.venv-bu/
+data/sim_runs/
+data/raw/
+data/processed/
+data/pioneer/
+data/vertex/
+data/eval/
+outputs/
+checkpoints/
+models/
+hf_cache/
+notebooks/
+__pycache__/
+.pytest_cache/
+*.parquet

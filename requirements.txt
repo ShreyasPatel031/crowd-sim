@@ -1,0 +1,5 @@
+# Core repo dependencies (data prep, tests, shared libs)
+datasets>=3.0.0
+huggingface-hub>=0.26.0
+pyyaml>=6.0
+pytest>=8.0.0

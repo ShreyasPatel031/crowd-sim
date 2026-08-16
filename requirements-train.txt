@@ -1,0 +1,9 @@
+# GPU training / generation. Install on the machine that has the GPU:
+#   .venv/bin/pip install -r requirements-train.txt
+-r requirements.txt
+torch>=2.4.0
+transformers>=4.45.0
+accelerate>=1.0.0
+peft>=0.13.0
+trl>=0.12.0
+bitsandbytes>=0.44.0

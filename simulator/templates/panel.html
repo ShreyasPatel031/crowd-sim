@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel {{ panel_id }}</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f6f5f1; color: #1b1b1b; }
+    main { max-width: 920px; margin: 36px auto; padding: 0 20px 72px; }
+    a { color: inherit; }
+    h1 { font-size: 26px; letter-spacing: -0.03em; margin: 0 0 8px; }
+    h2 { font-size: 18px; margin: 28px 0 12px; letter-spacing: -0.02em; }
+    .muted { color: #5c5c5c; }
+    .back { font-size: 13px; margin-bottom: 18px; display: inline-block; }
+    .card { background: #fff; border: 1px solid #e4e0d8; border-radius: 12px; padding: 18px 20px; margin: 16px 0; }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #6a6a6a; margin-bottom: 10px; }
+    .counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 4px; }
+    .stat { background: #f6f5f1; border-radius: 10px; padding: 14px; text-align: center; }
+    .stat b { display: block; font-size: 28px; letter-spacing: -0.03em; }
+    .stat span { font-size: 12px; color: #5c5c5c; text-transform: uppercase; letter-spacing: 0.06em; }
+    .lede { font-size: 15px; line-height: 1.5; margin: 0; }
+    .why-panel { font-size: 15px; line-height: 1.55; margin: 10px 0 0; }
+    .likelihood { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; }
+    .likelihood b { font-size: 42px; letter-spacing: -0.04em; }
+    .likelihood span { color: #5c5c5c; font-size: 13px; }
+    .bar { height: 8px; background: #eceae4; border-radius: 999px; overflow: hidden; margin: 8px 0 14px; }
+    .bar i { display: block; height: 100%; background: #1b1b1b; border-radius: 999px; }
+    .meta { font-size: 13px; color: #5c5c5c; margin: 8px 0 0; word-break: break-all; }
+    .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #eceae4; margin-right: 6px; text-transform: uppercase; }
+    .pill.buy { background: #dcefdc; color: #1d5c2e; }
+    .pill.maybe { background: #f7ecd0; color: #6a4b00; }
+    .pill.no { background: #fde8e8; color: #8a1f1f; }
+    .shopper { overflow: hidden; }
+    .shopper h3 { margin: 0 0 6px; font-size: 16px; }
+    .why { font-size: 14px; line-height: 1.5; margin: 10px 0; }
+    .kv { font-size: 13px; color: #444; margin: 4px 0; }
+    img.shot { width: 100%; display: block; border-radius: 8px; border: 1px solid #e4e0d8; margin-top: 12px; }
+    ul { margin: 6px 0 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="/">← New panel</a>
+    <h1>Panel report</h1>
+    <p class="muted">{{ report.shoppers|length }} synthetic shoppers
+      {% if report.human_responses %} · {{ report.human_responses|length }} human responses{% endif %}
+    </p>
+
+    <div class="card">
+      <div class="kicker">ASKED</div>
+      <p class="lede">{{ report.brief }}</p>
+      <p class="meta">{{ report.product_url }}</p>
+      {% if report.competitor_urls %}
+      <p class="meta">Competitors: {{ report.competitor_urls | join(" · ") }}</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="kicker">PANEL RESULT</div>
+      <p class="lede">
+        <strong>{{ report.summary.panel_label or report.summary.panel_verdict }}</strong>
+      </p>
+      <div class="likelihood">
+        <b>{{ report.summary.avg_buy_likelihood if report.summary.avg_buy_likelihood is not none else report.summary.avg_confidence or 0 }}%</b>
+        <span>average chance these shoppers buy your listing</span>
+      </div>
+      <div class="bar"><i style="width: {{ report.summary.avg_buy_likelihood if report.summary.avg_buy_likelihood is not none else report.summary.avg_confidence or 0 }}%"></i></div>
+      {% if report.summary.why %}
+      <p class="why-panel">{{ report.summary.why }}</p>
+      {% endif %}
+      <div class="counts">
+        <div class="stat"><b>{{ report.summary.counts.buy }}</b><span>Buy {{ report.summary.buy_rate }}%</span></div>
+        <div class="stat"><b>{{ report.summary.counts.maybe }}</b><span>Maybe {{ report.summary.maybe_rate }}%</span></div>
+        <div class="stat"><b>{{ report.summary.counts.no }}</b><span>No {{ report.summary.no_rate }}%</span></div>
+      </div>
+    </div>
+
+    {% if report.human_responses %}
+    <div class="card">
+      <div class="kicker">HUMAN (TERAC / IN-APP)</div>
+      {% for h in report.human_responses %}
+        <p class="kv"><span class="pill {{ h.verdict }}">{{ h.verdict }}</span> {{ h.rationale }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if report.terac and report.terac.status != "skipped" %}
+    <div class="card">
+      <div class="kicker">TERAC STUDY</div>
+      <p class="lede">{{ report.terac.status }}</p>
+      {% if report.terac.error %}<p class="meta">{{ report.terac.error }}</p>{% endif %}
+      {% if report.terac.dashboard %}<p class="meta">{{ report.terac.dashboard }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <h2>Shoppers</h2>
+    {% for s in report.shoppers %}
+    <div class="card shopper">
+      <h3>{{ s.persona.name }} · {{ s.persona.label }}
+        {% if s.verdict %}<span class="pill {{ s.verdict.verdict }}">{{ s.verdict.verdict }}</span>{% endif %}
+      </h3>
+      <p class="meta">{{ s.persona.bio }}</p>
+      {% if s.verdict %}
+        <div class="likelihood">
+          <b>{{ s.verdict.buy_likelihood if s.verdict.buy_likelihood is not none else s.verdict.confidence }}%</b>
+          <span>chance this shopper buys your listing</span>
+        </div>
+        <div class="bar"><i style="width: {{ s.verdict.buy_likelihood if s.verdict.buy_likelihood is not none else s.verdict.confidence }}%"></i></div>
+        <p class="why">{{ s.verdict.rationale }}</p>
+        <p class="kv"><strong>Would buy:</strong> {{ s.verdict.product_selected or "—" }}</p>
+        <p class="kv"><strong>Price:</strong> {{ s.verdict.price_perception or "—" }}</p>
+        {% if s.verdict.trust_concerns %}
+          <p class="kv"><strong>Trust concerns</strong></p>
+          <ul>{% for item in s.verdict.trust_concerns %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if s.verdict.conversion_blockers %}
+          <p class="kv"><strong>Conversion blockers</strong></p>
+          <ul>{% for item in s.verdict.conversion_blockers %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endif %}
+      {% else %}
+        <p class="why">{{ s.message or s.status }}</p>
+      {% endif %}
+      {% if s.screenshot %}
+        {% set parts = s.screenshot.split("/") %}
+        <img class="shot" src="/r/{{ parts[0] }}/shot/{{ parts[1] }}" alt="{{ s.persona.name }}" />
+      {% endif %}
+      {% if s.run_id %}
+        <p class="meta"><a href="/r/{{ s.run_id }}">Full walkthrough</a></p>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if stripe_ready %}
+    <div class="card">
+      <div class="kicker">NEXT STEP</div>
+      <p class="lede">Want another panel or a human Terac study? <a href="/pay">Pay via Stripe</a>.</p>
+    </div>
+    {% endif %}
+  </main>
+</body>
+</html>

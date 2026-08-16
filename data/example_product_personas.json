@@ -1,0 +1,78 @@
+{
+  "persona_type_definitions": {
+    "Spec researcher": "Reads reviews and compares specs before buying; won't grab the first result.",
+    "Budget grad": "Stipend-limited student who wants quality and value, not premium brands.",
+    "Home furnisher": "Shops home goods often and leans toward nicer brands and materials.",
+    "Smart-home tinkerer": "Compares whole ecosystems (Ring vs Aqara vs Matter) and buys lots of parts.",
+    "Cross-brand comparer": "Opens multiple brands in the same category and picks the best deal.",
+    "Speed buyer": "High budget, low patience — first acceptable listing wins.",
+    "Exact-model hunter": "Already knows the SKU; searches the full product name and quits if it's not on page 1."
+  },
+  "examples": [
+    {
+      "id": "fish-oil",
+      "product": "Sports Research Fish Oil Mini-Softgels",
+      "asin": "B0CHN9X9S2",
+      "url": "https://www.amazon.com/dp/B0CHN9X9S2",
+      "search_query": "fish oil",
+      "task_id": "task_028",
+      "persona_types": ["Budget grad"],
+      "primary_persona_type": "Budget grad",
+      "archetype": "budget_health_grad",
+      "seed_ids": ["3c426651-5067-498d-9b54-a1109090b85f"],
+      "why": "Stipend-limited shopper hunting value in supplements, not a premium brand."
+    },
+    {
+      "id": "comforter",
+      "product": "Bedsure Queen Comforter Set",
+      "asin": "B0B49MZLDB",
+      "url": "https://www.amazon.com/dp/B0B49MZLDB",
+      "search_query": "comforter",
+      "task_id": "task_024",
+      "persona_types": ["Home furnisher", "Budget grad"],
+      "primary_persona_type": "Home furnisher",
+      "archetype": "home_furnisher_premium",
+      "seed_ids": ["03a4f3ea-bfb7-4ba9-a7e5-5033f6958ce1"],
+      "why": "Home-goods shopper who leans nicer bedding; also showed up for a budget grad."
+    },
+    {
+      "id": "olaplex",
+      "product": "Olaplex No. 4 Bond Maintenance Shampoo",
+      "asin": "B07D37PQGL",
+      "url": "https://www.amazon.com/dp/B07D37PQGL",
+      "search_query": "shampoo",
+      "task_id": "task_025",
+      "persona_types": ["Cross-brand comparer", "Home furnisher"],
+      "primary_persona_type": "Cross-brand comparer",
+      "archetype": "cross_brand_comparer",
+      "seed_ids": ["3539f4ff-2781-4b5b-af33-6ace9752c557"],
+      "why": "Opens multiple hair-care brands and picks the best deal."
+    },
+    {
+      "id": "cat-food",
+      "product": "Stella & Chewy's Raw Coated Cat Food",
+      "asin": "B07YYJLKFW",
+      "url": "https://www.amazon.com/dp/B07YYJLKFW",
+      "search_query": "Primal Pork Formula Nuggets Grain-Free Raw Freeze-Dried Cat Food",
+      "task_id": "task_209",
+      "persona_types": ["Exact-model hunter"],
+      "primary_persona_type": "Exact-model hunter",
+      "archetype": "exact_model_hunter",
+      "seed_ids": ["7f0c8207-6a6f-49cd-9d7e-17987cfafcb9"],
+      "why": "Already knew the SKU; searched the full product name."
+    },
+    {
+      "id": "acne-patch",
+      "product": "ZenTroveUSA Pimple Patches",
+      "asin": "B0D5ZXKY3M",
+      "url": "https://www.amazon.com/dp/B0D5ZXKY3M",
+      "search_query": "acne patch",
+      "task_id": "task_169",
+      "persona_types": ["Spec researcher"],
+      "primary_persona_type": "Spec researcher",
+      "archetype": "spec_researcher",
+      "seed_ids": ["85aeec61-2d4e-489d-93bf-76c928d2d795"],
+      "why": "Reads reviews and compares specs before buying; won't grab the first result."
+    }
+  ]
+}

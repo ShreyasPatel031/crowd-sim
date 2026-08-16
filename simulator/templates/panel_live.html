@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel {{ panel_id }}</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f6f5f1; color: #1b1b1b; }
+    main { max-width: 1120px; margin: 28px auto; padding: 0 20px 64px; }
+    a { color: inherit; }
+    h1 { font-size: 26px; letter-spacing: -0.03em; margin: 0 0 8px; }
+    .muted { color: #5c5c5c; }
+    .back { font-size: 13px; margin-bottom: 16px; display: inline-block; }
+    .card { background: #fff; border: 1px solid #e4e0d8; border-radius: 12px; padding: 16px 18px; margin: 12px 0; }
+    .status-row { display: flex; align-items: center; gap: 12px; }
+    .spinner { width: 18px; height: 18px; border: 2px solid #d4d0c8; border-top-color: #1b1b1b; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-text { font-size: 16px; font-weight: 600; }
+    .meta { font-size: 13px; color: #5c5c5c; margin: 8px 0 0; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+    .shopper, .item { width: 100%; text-align: left; border: 1px solid #e4e0d8; background: #fff; border-radius: 10px; padding: 10px 12px; margin: 0 0 8px; cursor: pointer; font: inherit; }
+    .shopper.active, .item.active { border-color: #1b1b1b; background: #f6f5f1; }
+    .item .name { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .url { font-size: 11px; color: #8a8a8a; margin-top: 2px; word-break: break-all; }
+    .name { font-weight: 700; font-size: 13px; display: block; }
+    .sub { font-size: 12px; color: #5c5c5c; margin-top: 3px; }
+    .verdict { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #eceae4; margin-left: 6px; text-transform: uppercase; }
+    .verdict.buy { background: #dcefdc; color: #1d5c2e; }
+    .verdict.maybe { background: #f7ecd0; color: #6a4b00; }
+    .verdict.no { background: #fde8e8; color: #8a1f1f; }
+    .verdict.running { background: #e7eefc; color: #1d3c8a; }
+    .think { background: #f6f5f1; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-bottom: 6px; }
+    img.shot { width: 100%; border-radius: 10px; border: 1px solid #e4e0d8; background: #fff; }
+    img.step-shot { width: 100%; max-width: 420px; border-radius: 8px; border: 1px solid #e4e0d8; margin-top: 8px; display: block; }
+    ol.steps { list-style: none; padding: 0; margin: 0; }
+    ol.steps li { padding: 10px 0; border-top: 1px solid #eceae4; font-size: 14px; }
+    .step-action { font-weight: 700; }
+    .step-detail { color: #444; font-weight: 500; }
+    .step-why { margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: #333; }
+    .step-why .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-right: 6px; }
+    .err { background: #fde8e8; color: #8a1f1f; padding: 12px; border-radius: 8px; }
+    .panel-result { margin-top: 0; }
+    .panel-result .lede { font-size: 15px; line-height: 1.5; margin: 0; }
+    .counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .stat { background: #f6f5f1; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat b { display: block; font-size: 22px; }
+    .stat span { font-size: 11px; color: #5c5c5c; text-transform: uppercase; letter-spacing: 0.05em; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="/">← New panel</a>
+    <h1>Shopper panel</h1>
+    <p class="muted" id="brief-line">{{ progress.brief or "" }}</p>
+    <div class="card" id="status-card">
+      <div class="status-row">
+        <div class="spinner" id="spinner"></div>
+        <div class="status-text" id="status-text">{{ progress.message or "Starting…" }}</div>
+      </div>
+      <p class="meta" id="status-meta"></p>
+    </div>
+    <div class="card panel-result" id="panel-result" hidden>
+      <div class="kicker">PANEL RESULT</div>
+      <p class="lede" id="panel-lede"></p>
+      <div class="counts" id="panel-counts" hidden>
+        <div class="stat"><b id="count-buy">0</b><span id="rate-buy">Buy</span></div>
+        <div class="stat"><b id="count-maybe">0</b><span id="rate-maybe">Maybe</span></div>
+        <div class="stat"><b id="count-no">0</b><span id="rate-no">No</span></div>
+      </div>
+      <p class="lede" id="panel-why" style="margin-top:12px;"></p>
+    </div>
+    <div class="layout">
+      <div>
+        <div class="card">
+          <div class="kicker">SHOPPERS</div>
+          <div id="shopper-list"></div>
+        </div>
+        <div class="card">
+          <div class="kicker">ITEMS</div>
+          <div id="item-list"></div>
+        </div>
+      </div>
+      <div class="card" id="detail">
+        <div class="kicker">SELECTED SHOPPER</div>
+        <p class="muted" id="detail-empty">Select a shopper and an item to watch that browse.</p>
+        <div id="detail-body" hidden>
+          <h2 id="detail-name" style="font-size:18px;margin:0 0 8px;"></h2>
+          <p class="meta" id="detail-meta"></p>
+          <div class="think" id="detail-think" hidden></div>
+          <img class="shot" id="detail-shot" alt="Shopper screenshot" hidden />
+          <div class="kicker" style="margin-top:16px;">STEPS</div>
+          <ol class="steps" id="detail-steps"></ol>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script>
+    const panelId = {{ panel_id | tojson }};
+    const statusText = document.getElementById("status-text");
+    const statusMeta = document.getElementById("status-meta");
+    const list = document.getElementById("shopper-list");
+    const itemList = document.getElementById("item-list");
+    const spinner = document.getElementById("spinner");
+    const statusCard = document.getElementById("status-card");
+    let selectedId = null;
+    let selectedItem = 0;
+    let latestShoppers = [];
+    let latestItems = [];
+
+    function text(tag, className, value) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      node.textContent = value;
+      return node;
+    }
+
+    function pickDefault(shoppers) {
+      if (selectedId && shoppers.some((s) => s.id === selectedId)) return selectedId;
+      const running = shoppers.find((s) => s.status === "running");
+      return (running || shoppers[0] || {}).id || null;
+    }
+
+    function pickItem(items) {
+      if (items.some((item) => item.index === selectedItem)) return selectedItem;
+      return (items[0] || {}).index ?? 0;
+    }
+
+    function listingFor(shopper, index) {
+      return ((shopper || {}).listings || []).find((lst) => lst.index === index) || null;
+    }
+
+    function shotParts(listing) {
+      const raw = (listing && listing.screenshot) || "";
+      const parts = raw.split("/").filter(Boolean);
+      if (parts.length >= 2) return { runId: parts[0], name: parts[parts.length - 1] };
+      const name = parts[0] || "";
+      return { runId: (listing && listing.run_id) || "", name };
+    }
+
+    function renderAll() {
+      const shopper = latestShoppers.find((s) => s.id === selectedId) || null;
+      renderShoppers();
+      renderItems(shopper);
+      renderDetail(shopper, listingFor(shopper, selectedItem));
+    }
+
+    function renderShoppers() {
+      list.innerHTML = "";
+      for (const s of latestShoppers || []) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "shopper" + (s.id === selectedId ? " active" : "");
+        const head = document.createElement("div");
+        head.appendChild(text("span", "name", s.name || s.label || "Shopper"));
+        const pillLabel = s.verdict
+          ? `${s.verdict.buy_likelihood ?? s.verdict.confidence ?? ""}% ${s.verdict.verdict || ""}`.trim()
+          : (s.status || "queued");
+        const pill = text("span", "verdict " + (s.verdict?.verdict || s.status || "queued"), pillLabel);
+        head.appendChild(pill);
+        btn.appendChild(head);
+        const listings = s.listings || [];
+        const browsing = listings.filter((lst) => lst.status === "running").length;
+        const nItems = listings.length || latestItems.length;
+        btn.appendChild(text("div", "sub", nItems
+          ? `${browsing} browsing · ${nItems} item${nItems === 1 ? "" : "s"}`
+          : (s.message || "Waiting…")));
+        btn.addEventListener("click", () => {
+          selectedId = s.id;
+          renderAll();
+        });
+        list.appendChild(btn);
+      }
+    }
+
+    function renderItems(shopper) {
+      itemList.innerHTML = "";
+      const items = latestItems.length
+        ? latestItems
+        : (shopper?.listings || []).map((lst) => ({
+            index: lst.index,
+            role: lst.role,
+            url: lst.url,
+            label: lst.label,
+            title: lst.title,
+          }));
+      if (!items.length) {
+        itemList.appendChild(text("p", "muted", "Waiting for listings…"));
+        return;
+      }
+      for (const item of items) {
+        const listing = listingFor(shopper, item.index);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "item" + (item.index === selectedItem ? " active" : "");
+        const head = document.createElement("div");
+        const label = listing?.title || listing?.label || item.title || item.label || (item.role === "product" ? "Your listing" : `Competitor ${item.index}`);
+        head.appendChild(text("span", "name", label));
+        const status = listing?.verdict?.verdict || listing?.status || "queued";
+        head.appendChild(text("span", "verdict " + status, status));
+        btn.appendChild(head);
+        const n = (listing?.steps || []).length;
+        btn.appendChild(text("div", "sub", n ? `${n} steps · ${listing?.message || listing?.status || ""}` : (listing?.message || "Waiting…")));
+        const url = listing?.url || item.url || "";
+        if (url) btn.appendChild(text("div", "url", url));
+        btn.addEventListener("click", () => {
+          selectedItem = item.index;
+          renderAll();
+        });
+        itemList.appendChild(btn);
+      }
+    }
+
+    function renderDetail(s, listing) {
+      const empty = document.getElementById("detail-empty");
+      const body = document.getElementById("detail-body");
+      if (!s) {
+        empty.hidden = false;
+        body.hidden = true;
+        return;
+      }
+      empty.hidden = true;
+      body.hidden = false;
+      const itemLabel = listing?.title || listing?.label || "listing";
+      document.getElementById("detail-name").textContent = `${s.name || ""} · ${itemLabel}`;
+      const n = (listing?.steps || []).length;
+      document.getElementById("detail-meta").textContent =
+        `${listing?.status || s.status || "queued"}${n ? ` · ${n} steps` : ""}${listing?.url ? " · " + listing.url : ""}`;
+      const think = document.getElementById("detail-think");
+      const thinking = listing?.thinking || s.thinking || s.verdict?.rationale || "";
+      think.hidden = !thinking;
+      think.textContent = thinking ? `Thinking: ${thinking}` : "";
+      const shot = document.getElementById("detail-shot");
+      const parts = shotParts(listing);
+      if (parts.runId && parts.name) {
+        shot.hidden = false;
+        shot.src = `/r/${parts.runId}/shot/${parts.name}?t=${Date.now()}`;
+      } else {
+        shot.hidden = true;
+      }
+      const ol = document.getElementById("detail-steps");
+      ol.innerHTML = "";
+      const runId = listing?.run_id || parts.runId || "";
+      for (const step of listing?.steps || []) {
+        const li = document.createElement("li");
+        const action = step.decision?.action || "?";
+        const detail = step.decision?.detail && step.decision.detail !== action ? step.decision.detail : "";
+        const reason = step.decision?.reason || step.decision?.memory || "";
+        const head = document.createElement("div");
+        head.appendChild(text("span", "step-action", `Step ${step.step}: ${action}`));
+        if (detail) head.appendChild(text("span", "step-detail", ` — ${detail}`));
+        li.appendChild(head);
+        if (reason) {
+          const why = document.createElement("div");
+          why.className = "step-why";
+          why.appendChild(text("span", "lbl", "WHY"));
+          why.appendChild(document.createTextNode(reason));
+          li.appendChild(why);
+        }
+        if (step.screenshot && runId) {
+          const img = document.createElement("img");
+          img.className = "step-shot";
+          img.alt = `Step ${step.step}`;
+          img.src = `/r/${runId}/shot/${step.screenshot}?t=${Date.now()}`;
+          li.appendChild(img);
+        }
+        ol.appendChild(li);
+      }
+    }
+
+    function renderPanelSummary(summary) {
+      const card = document.getElementById("panel-result");
+      const lede = document.getElementById("panel-lede");
+      const counts = document.getElementById("panel-counts");
+      const why = document.getElementById("panel-why");
+      if (!summary || !summary.panel_verdict) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      const avg = summary.avg_buy_likelihood != null ? summary.avg_buy_likelihood : summary.avg_confidence;
+      const label = summary.panel_label || summary.panel_verdict;
+      lede.textContent = avg != null ? `${label} · ${avg}% likely to buy this listing` : label;
+      if (why) why.textContent = summary.why || "";
+      counts.hidden = false;
+      document.getElementById("count-buy").textContent = summary.counts?.buy ?? 0;
+      document.getElementById("count-maybe").textContent = summary.counts?.maybe ?? 0;
+      document.getElementById("count-no").textContent = summary.counts?.no ?? 0;
+      document.getElementById("rate-buy").textContent = `Buy ${summary.buy_rate ?? 0}%`;
+      document.getElementById("rate-maybe").textContent = `Maybe ${summary.maybe_rate ?? 0}%`;
+      document.getElementById("rate-no").textContent = `No ${summary.no_rate ?? 0}%`;
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(`/p/${panelId}/status`);
+        if (!res.ok) throw new Error("Status unavailable");
+        const data = await res.json();
+        statusText.textContent = data.message || "Running…";
+        renderPanelSummary(data.summary);
+        const shoppers = data.shoppers || [];
+        latestShoppers = shoppers;
+        latestItems = data.items || [];
+        const done = shoppers.filter((s) => s.status === "done").length;
+        const running = shoppers.filter((s) => s.status === "running").length;
+        const browsers = shoppers.reduce(
+          (n, s) => n + ((s.listings || []).filter((lst) => lst.status === "running").length),
+          0
+        );
+        const nItems = latestItems.length;
+        statusMeta.textContent = shoppers.length
+          ? `${browsers} browsers · ${running} shopper${running === 1 ? "" : "s"} running · ${done} of ${shoppers.length} finished · ${nItems} item${nItems === 1 ? "" : "s"}`
+          : "";
+        selectedId = pickDefault(shoppers);
+        selectedItem = pickItem(latestItems);
+        renderAll();
+        if (data.status === "done") {
+          window.location.reload();
+          return;
+        }
+        if (data.status === "error") {
+          spinner.remove();
+          statusCard.innerHTML = `<div class="err"></div>`;
+          statusCard.querySelector(".err").textContent = data.error || data.message || "Run failed";
+          return;
+        }
+      } catch (err) {
+        statusMeta.textContent = "Waiting for panel to start…";
+      }
+      setTimeout(poll, 800);
+    }
+    poll();
+  </script>
+</body>
+</html>

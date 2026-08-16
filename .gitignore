@@ -1,0 +1,32 @@
+.venv/
+.venv-bu/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# generated / large artifacts
+data/raw/
+data/cache/
+data/pioneer/
+data/eval/
+data/vertex/
+data/processed_reasoning/
+data/processed/
+data/sim_runs/
+data/screenshots/
+.env
+outputs/
+wandb/
+runs/
+checkpoints/
+*.parquet
+
+# model weights
+models/
+*.safetensors
+*.bin
+*.gguf
+hf_cache/

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Run {{ run_id }}</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f6f5f1; color: #1b1b1b; }
+    main { max-width: 880px; margin: 36px auto; padding: 0 20px 64px; }
+    a { color: inherit; }
+    h1 { font-size: 26px; letter-spacing: -0.03em; margin: 0 0 8px; }
+    h2 { font-size: 18px; margin: 32px 0 12px; letter-spacing: -0.02em; }
+    .muted { color: #5c5c5c; }
+    .card { background: #fff; border: 1px solid #e4e0d8; border-radius: 12px; padding: 18px 20px; margin: 16px 0; }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #6a6a6a; margin-bottom: 10px; }
+    .intent { font-size: 16px; line-height: 1.45; margin: 0 0 10px; }
+    .meta { font-size: 13px; color: #5c5c5c; margin: 8px 0; }
+    .back { font-size: 13px; margin-bottom: 18px; display: inline-block; }
+    .pill { display: inline-block; font-size: 11px; font-weight: 650; padding: 3px 8px; border-radius: 999px; background: #eceae4; margin-right: 6px; }
+    .pill.ok { background: #dcefdc; color: #1d5c2e; }
+    .pill.fail { background: #fde8e8; color: #8a1f1f; }
+    .lede { font-size: 15px; line-height: 1.5; margin: 0 0 16px; }
+    .walkthrough { list-style: none; padding: 0; margin: 0; }
+    .walkthrough li { padding: 12px 0; border-top: 1px solid #eceae4; }
+    .walkthrough li:first-child { border-top: 0; padding-top: 0; }
+    .walk-head { display: flex; gap: 10px; align-items: baseline; }
+    .walk-n { font-size: 12px; font-weight: 700; color: #6a6a6a; min-width: 1.6em; }
+    .walk-action { font-size: 14px; font-weight: 700; }
+    .walk-detail { font-size: 13px; font-weight: 500; color: #444; }
+    .walk-why { margin: 6px 0 0 2.4em; font-size: 14px; line-height: 1.45; color: #333; }
+    .walk-why .lbl { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-bottom: 3px; }
+    .result { font-size: 15px; line-height: 1.55; white-space: pre-wrap; margin: 0; }
+    .outcome { margin-top: 16px; padding: 14px 16px; background: #f6f5f1; border-radius: 10px; }
+    .outcome .kicker { margin-bottom: 8px; }
+    ol.steps { list-style: none; padding: 0; margin: 0; }
+    ol.steps > li { margin: 0 0 22px; }
+    .step-card { background: #fff; border: 1px solid #e4e0d8; border-radius: 12px; overflow: hidden; }
+    .step-head { display: flex; gap: 10px; align-items: baseline; padding: 14px 16px 0; }
+    .step-num { font-size: 12px; font-weight: 700; color: #6a6a6a; min-width: 52px; }
+    .step-action { font-size: 14px; font-weight: 700; }
+    .step-detail { font-size: 13px; color: #444; font-weight: 500; }
+    .step-why { padding: 8px 16px 14px 78px; font-size: 14px; line-height: 1.45; color: #333; }
+    .step-why span { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-bottom: 4px; }
+    img.shot { width: 100%; display: block; border-top: 1px solid #e4e0d8; background: #fff; }
+    .step-foot { padding: 10px 16px 14px; font-size: 12px; color: #6a6a6a; word-break: break-all; }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="/">← New run</a>
+    <h1>Walkthrough report</h1>
+    <p class="muted">
+      {% if report.is_success %}<span class="pill ok">Succeeded</span>
+      {% elif report.is_success is sameas false %}<span class="pill fail">Did not finish</span>
+      {% endif %}
+      {% if report.agent %}<span class="pill">{{ report.agent }}</span>{% endif %}
+      {% if report.model %}<span class="pill">{{ report.model }}</span>{% endif %}
+    </p>
+
+    <div class="card">
+      <div class="kicker">ASKED TO</div>
+      <p class="intent">{{ report.intent }}</p>
+      <p class="meta">{{ report.start_url }}</p>
+    </div>
+
+    <div class="card">
+      <div class="kicker">RESULT</div>
+      {% if report.steps %}
+        <p class="lede">
+          {% if report.is_success %}The agent finished in {{ report.steps|length }} step{{ 's' if report.steps|length != 1 else '' }}.
+          {% elif report.is_success is sameas false %}The agent did not finish after {{ report.steps|length }} step{{ 's' if report.steps|length != 1 else '' }}.
+          {% else %}The agent took {{ report.steps|length }} step{{ 's' if report.steps|length != 1 else '' }}.
+          {% endif %}
+          Each step below is the action it took and why.
+        </p>
+        <ol class="walkthrough">
+          {% for step in report.steps %}
+          <li>
+            <div class="walk-head">
+              <span class="walk-n">{{ step.step }}.</span>
+              <span>
+                <span class="walk-action">{{ step.decision.action }}</span>
+                {% if step.decision.detail and step.decision.detail != step.decision.action %}
+                  <span class="walk-detail"> — {{ step.decision.detail }}</span>
+                {% endif %}
+              </span>
+            </div>
+            {% if step.decision.reason or step.decision.target_text %}
+            <div class="walk-why">
+              <span class="lbl">WHY</span>
+              {{ step.decision.reason or step.decision.target_text }}
+            </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+        {% if report.output %}
+        <div class="outcome">
+          <div class="kicker">OUTCOME</div>
+          <p class="result">{{ report.output }}</p>
+        </div>
+        {% endif %}
+      {% else %}
+        <p class="result">{{ report.explanation or report.would_prefer or report.output or report.summary }}</p>
+      {% endif %}
+      {% if report.friction %}
+        <div class="kicker" style="margin-top:16px;">FRICTION</div>
+        <ul>{% for item in report.friction %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if report.products_noticed %}
+        <div class="kicker" style="margin-top:16px;">PRODUCTS NOTICED</div>
+        <ul>{% for item in report.products_noticed %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <h2>Steps</h2>
+    <ol class="steps">
+      {% for step in report.steps %}
+      <li class="step-card">
+        <div class="step-head">
+          <div class="step-num">STEP {{ step.step }}</div>
+          <div>
+            <span class="step-action">{{ step.decision.action }}</span>
+            {% if step.decision.detail and step.decision.detail != step.decision.action %}
+              <span class="step-detail"> — {{ step.decision.detail }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if step.decision.reason or step.decision.target_text %}
+        <div class="step-why">
+          <span>WHY</span>
+          {{ step.decision.reason or step.decision.target_text }}
+        </div>
+        {% endif %}
+        {% if step.screenshot %}
+        <img class="shot" src="/r/{{ run_id }}/shot/{{ step.screenshot }}" alt="Step {{ step.step }}" />
+        {% endif %}
+        <div class="step-foot">{{ step.title }}{% if step.url %} · {{ step.url }}{% endif %}</div>
+      </li>
+      {% endfor %}
+    </ol>
+  </main>
+</body>
+</html>
