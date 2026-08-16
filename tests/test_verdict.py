@@ -45,7 +45,7 @@ def test_aggregate_panel():
     assert summary["avg_buy_likelihood"] == 60
     assert summary["panel_verdict"] == "uncertain"
     assert "iterate" in summary["panel_label"].lower()
-    assert summary["why"]
+    assert summary["top_blockers"]
 
 
 def test_combine_skips_same_brand_and_uses_likelihood():

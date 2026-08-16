@@ -1,4 +1,4 @@
-from simulator.agent import validate_public_url
+from simulator.public_urls import validate_public_url
 import pytest
 
 

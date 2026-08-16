@@ -12,6 +12,18 @@ from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 ASIN_RE = re.compile(r"(?:/dp/|/gp/product/|/gp/aw/d/)([A-Z0-9]{10})", re.I)
+SEARCH_RESULT_RE = re.compile(
+    r'data-component-type="s-search-result"[^>]*data-asin="([A-Z0-9]{10})"[\s\S]{0,4000}?'
+    r'<h2[^>]*>[\s\S]*?(?:<span[^>]*>)?\s*([^<]{8,240})\s*(?:</span>)?',
+    re.I,
+)
+PRODUCT_TITLE_RE = re.compile(r'id="productTitle"[^>]*>\s*([^<]+?)\s*<', re.I)
+OG_TITLE_RE = re.compile(r'property="og:title"\s+content="([^"]+)"', re.I)
+BYLINE_RE = re.compile(r'id="bylineInfo"[^>]*>([^<]+)<', re.I)
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "opera_catalog.json"
 
 STOPWORDS = {
@@ -133,6 +145,126 @@ def search_query_for_persona(title: str, persona: dict[str, Any] | None = None) 
     elif "quality" in blob or "premium" in blob:
         query += " highly rated"
     return query
+
+
+def resolve_search_query(
+    *,
+    explicit: str | None,
+    meta: dict[str, str],
+    seed_title: str,
+    persona: dict[str, Any] | None = None,
+) -> str:
+    explicit_q = (explicit or "").strip()
+    if explicit_q:
+        return explicit_q
+    title = (seed_title or meta.get("title") or "").strip()
+    title_q = search_query_for_persona(title, persona)
+    meta_q = (meta.get("query") or "").strip()
+    if title and meta_q:
+        overlap = len(_tokens(title) & _tokens(meta_q))
+        if overlap < 2:
+            return title_q
+    return meta_q or title_q or "similar product"
+
+
+def _fetch_html(url: str, *, timeout: float = 18.0) -> str:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def fetch_amazon_product_http(product_url: str) -> dict[str, str]:
+    """Best-effort title + brand without Playwright."""
+    asin = extract_asin(product_url)
+    if not asin:
+        return {}
+    url = normalize_amazon_url(product_url)
+    try:
+        html = _fetch_html(url)
+    except Exception:
+        return {"asin": asin}
+    if len(html) < 5000 or "captcha" in html.lower():
+        return {"asin": asin}
+    title_match = PRODUCT_TITLE_RE.search(html) or OG_TITLE_RE.search(html)
+    title = (title_match.group(1) if title_match else "").strip()
+    title = re.sub(r"\s*:\s*Amazon\.[^:]*$", "", title).strip()
+    byline = BYLINE_RE.search(html)
+    brand = _normalize_brand(byline.group(1) if byline else "") or brand_from_title(title)
+    return {"asin": asin, "title": title, "brand": brand}
+
+
+def normalize_amazon_url(url: str) -> str:
+    from simulator.public_urls import normalize_amazon_url as _norm
+
+    return _norm(url)
+
+
+def competitors_from_amazon_http(
+    query: str,
+    skip: set[str],
+    limit: int = 4,
+    *,
+    seed_title: str = "",
+    seed_brand: str = "",
+) -> list[dict[str, str]]:
+    q = (query or "").strip()
+    if not q:
+        return []
+    search_url = "https://www.amazon.com/s?" + urllib.parse.urlencode({"k": q})
+    try:
+        html = _fetch_html(search_url, timeout=20.0)
+    except Exception:
+        return []
+    if len(html) < 8000 or "captcha" in html.lower():
+        return []
+    out: list[dict[str, str]] = []
+    seen = set(skip)
+    for match in SEARCH_RESULT_RE.finditer(html):
+        asin = match.group(1).upper()
+        title = re.sub(r"\s+", " ", match.group(2)).strip()
+        if not asin or asin in seen or asin == "0000000000":
+            continue
+        item = {
+            "asin": asin,
+            "url": product_url_for_asin(asin),
+            "title": title,
+            "brand": brand_from_title(title),
+            "via": "amazon",
+        }
+        if not _keep_item(item, seen, seed_title, seed_brand):
+            seen.add(asin)
+            continue
+        seen.add(asin)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    if out:
+        return out
+    asins = _collect_asins(re.findall(r'data-asin="([A-Z0-9]{10})"', html), skip)
+    for asin in asins:
+        meta = catalog_product_for_asin(asin)
+        item = {
+            "asin": asin,
+            "url": product_url_for_asin(asin),
+            "title": meta.get("title") or "",
+            "brand": meta.get("brand") or brand_from_title(meta.get("title") or ""),
+            "via": "amazon",
+        }
+        if not _keep_item(item, seen, seed_title, seed_brand):
+            seen.add(asin)
+            continue
+        seen.add(asin)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def same_listing(seed_title: str, seed_brand: str, cand_title: str, cand_brand: str = "") -> bool:
@@ -448,31 +580,56 @@ async def find_competitors(
     persona: dict[str, Any] | None = None,
     limit: int = 4,
 ) -> dict[str, Any]:
+    from simulator.model_profiles import is_vercel_runtime
+
+    product_url = normalize_amazon_url(product_url)
     seed_asin = extract_asin(product_url)
-    skip = {seed_asin} if seed_asin else set()
+    if not seed_asin:
+        return {
+            "product_url": product_url,
+            "product_title": "",
+            "query": "",
+            "source": "none",
+            "competitors": [],
+        }
+    skip = {seed_asin}
     meta = catalog_product_for_asin(seed_asin) if seed_asin else {}
-    seed_title = meta.get("title") or ""
-    seed_brand = meta.get("brand") or brand_from_title(seed_title)
-    q = (query or "").strip() or meta.get("query") or search_query_for_persona(seed_title or product_url, persona)
+    http_meta = fetch_amazon_product_http(product_url) if seed_asin else {}
+    seed_title = http_meta.get("title") or meta.get("title") or ""
+    seed_brand = http_meta.get("brand") or meta.get("brand") or brand_from_title(seed_title)
+    q = resolve_search_query(explicit=query, meta=meta, seed_title=seed_title, persona=persona)
     title = seed_title
     source = "none"
     items: list[dict[str, str]] = []
 
-    try:
-        amazon = await _from_amazon(product_url, q, skip, limit, seed_title=seed_title, seed_brand=seed_brand)
-        title = amazon.get("title") or title
-        seed_brand = amazon.get("brand") or seed_brand or brand_from_title(title)
-        skip |= {
-            amazon.get("canonical_asin") or "",
-            amazon.get("parent_asin") or "",
-            *(amazon.get("variation_asins") or []),
-        }
-        skip.discard("")
-        items = list(amazon.get("competitors") or [])
-        if items:
-            source = "amazon"
-    except Exception:
-        items = []
+    extra_http = competitors_from_amazon_http(
+        q,
+        skip,
+        limit,
+        seed_title=seed_title,
+        seed_brand=seed_brand,
+    )
+    if extra_http:
+        items.extend(extra_http)
+        source = "amazon"
+
+    if not is_vercel_runtime() and len(items) < limit:
+        try:
+            amazon = await _from_amazon(product_url, q, skip | {i["asin"] for i in items}, limit - len(items), seed_title=seed_title, seed_brand=seed_brand)
+            title = amazon.get("title") or title
+            seed_brand = amazon.get("brand") or seed_brand or brand_from_title(title)
+            skip |= {
+                amazon.get("canonical_asin") or "",
+                amazon.get("parent_asin") or "",
+                *(amazon.get("variation_asins") or []),
+            }
+            skip.discard("")
+            pw_items = list(amazon.get("competitors") or [])
+            if pw_items:
+                items.extend(pw_items)
+                source = "amazon" if source == "none" else source + "+amazon"
+        except Exception:
+            pass
 
     if len(items) < limit:
         extra = competitors_from_duckduckgo(
@@ -484,7 +641,7 @@ async def find_competitors(
         )
         if extra:
             items.extend(extra)
-            source = "search" if source != "amazon" else "amazon+search"
+            source = "search" if source == "none" else source + "+search"
 
     if len(items) < limit:
         extra = competitors_from_opera(
@@ -496,7 +653,7 @@ async def find_competitors(
         )
         if extra:
             items.extend(extra)
-            source = "opera" if source in ("none",) else source + "+opera"
+            source = "opera" if source == "none" else source + "+opera"
 
     return {
         "product_url": product_url,

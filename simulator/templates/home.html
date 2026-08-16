@@ -83,7 +83,7 @@
       </div>
       <div class="field">
         <label for="url">Your product URL</label>
-        <input id="url" name="url" placeholder="https://www.amazon.com/dp/..." value="{{ url or 'https://amazon.com' }}" required />
+        <input id="url" name="url" placeholder="https://www.amazon.com/dp/..." value="{{ url or 'https://www.amazon.com/dp/B014LDT0ZM' }}" required />
       </div>
       <div class="field">
         <label for="competitors">Competitor URLs <span class="hint">leave blank to auto-find up to 4</span></label>
@@ -188,11 +188,14 @@
       findBtn.disabled = true;
       findStatus.textContent = "Searching Amazon…";
       try {
+        let productUrl = (urlInput.value || "").trim();
+        productUrl = productUrl.replace(/^https?:\/\/amazon\.com/i, "https://www.amazon.com");
+        if (productUrl && !/^https?:\/\//i.test(productUrl)) productUrl = "https://" + productUrl;
+        urlInput.value = productUrl;
         const persona = document.querySelector('input[name="personas"]:checked');
-        const params = new URLSearchParams({
-          url: urlInput.value,
-          query: (taskSel.selectedOptions[0] && taskSel.selectedOptions[0].dataset.query) || "",
-        });
+        const params = new URLSearchParams({ url: productUrl });
+        const taskQuery = (taskSel.selectedOptions[0] && taskSel.selectedOptions[0].dataset.query) || "";
+        if (taskQuery) params.set("query", taskQuery);
         if (persona) params.set("persona", persona.value);
         const res = await fetch("/competitors?" + params.toString());
         const data = await res.json();
@@ -201,8 +204,8 @@
         competitors.value = urls.join("\n");
         const names = (data.competitors || []).map((c) => c.title || c.asin).filter(Boolean);
         findStatus.textContent = urls.length
-          ? `Found ${urls.length} other listing${urls.length === 1 ? "" : "s"} for “${data.product_title || data.query}”: ${names.join(" · ")}`
-          : "No other-brand competitors found — paste URLs or the panel will search while it runs.";
+          ? `Found ${urls.length} competitor${urls.length === 1 ? "" : "s"} for “${data.query || data.product_title || "this listing"}”: ${names.join(" · ")}`
+          : `No competitors found for “${data.query || "this listing"}” — paste URLs or the panel will search while it runs.`;
       } catch (err) {
         findStatus.textContent = err.message || "Could not find competitors.";
       }

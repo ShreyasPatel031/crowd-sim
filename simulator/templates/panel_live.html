@@ -41,7 +41,16 @@
     .step-why .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-right: 6px; }
     .err { background: #fde8e8; color: #8a1f1f; padding: 12px; border-radius: 8px; }
     .panel-result { margin-top: 0; }
-    .panel-result .lede { font-size: 15px; line-height: 1.5; margin: 0; }
+    .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+    .panel-label { font-size: 20px; font-weight: 650; letter-spacing: -0.03em; margin: 0; line-height: 1.2; }
+    .panel-sub { font-size: 12px; color: #5c5c5c; margin: 4px 0 0; }
+    .panel-score b { font-size: 40px; letter-spacing: -0.04em; line-height: 1; }
+    .bar { height: 8px; background: #eceae4; border-radius: 999px; overflow: hidden; margin: 10px 0 0; }
+    .bar i { display: block; height: 100%; background: #1b1b1b; border-radius: 999px; }
+    .panel-blockers { margin-top: 12px; }
+    .panel-blockers ul { margin: 6px 0 0; padding-left: 18px; color: #333; font-size: 13px; line-height: 1.45; }
+    .panel-blockers li { margin: 3px 0; }
+    .panel-insight { font-size: 13px; line-height: 1.5; color: #333; margin: 12px 0 0; }
     .counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
     .stat { background: #f6f5f1; border-radius: 8px; padding: 10px; text-align: center; }
     .stat b { display: block; font-size: 22px; }
@@ -63,13 +72,25 @@
     </div>
     <div class="card panel-result" id="panel-result" hidden>
       <div class="kicker">PANEL RESULT</div>
-      <p class="lede" id="panel-lede"></p>
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-label" id="panel-label"></h2>
+          <p class="panel-sub" id="panel-sub"></p>
+        </div>
+        <div class="panel-score"><b id="panel-score"></b></div>
+      </div>
+      <div class="bar"><i id="panel-bar"></i></div>
+      <div class="panel-blockers" id="panel-blockers" hidden>
+        <div class="kicker">Main hesitations</div>
+        <ul id="panel-blocker-list"></ul>
+      </div>
+      <p class="panel-insight" id="panel-insight" hidden></p>
       <div class="counts" id="panel-counts" hidden>
         <div class="stat"><b id="count-buy">0</b><span id="rate-buy">Buy</span></div>
         <div class="stat"><b id="count-maybe">0</b><span id="rate-maybe">Maybe</span></div>
         <div class="stat"><b id="count-no">0</b><span id="rate-no">No</span></div>
       </div>
-      <p class="lede" id="panel-why" style="margin-top:12px;"></p>
+      <p class="lede" id="panel-why" hidden></p>
     </div>
     <div class="layout">
       <div>

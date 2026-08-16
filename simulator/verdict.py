@@ -4,10 +4,40 @@ from __future__ import annotations
 
 import json
 import re
-from collections import Counter
 from typing import Any
 
 VERDICT_VALUES = ("buy", "maybe", "no")
+
+
+def _short_listing_name(name: str, limit: int = 72) -> str:
+    text = re.sub(r"^Amazon\.com:\s*", "", (name or "").strip())
+    text = re.sub(
+        r"\s*:\s*(Health\s*&\s*Household|Home\s*&\s*Kitchen|Tools\s*&\s*Home Improvement|Patio.*)$",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    clipped = text[: limit - 1].rsplit(" ", 1)[0]
+    return (clipped or text[: limit - 1]) + "…"
+
+
+def _clean_rationale(text: str, *, limit: int = 240) -> str:
+    text = re.sub(r"^\d{1,3}%\s+likely to buy\s+", "", (text or "").strip(), flags=re.I)
+    text = re.sub(
+        r"^Amazon\.com:\s*.+?(?:Health\s*&\s*Household|Home\s*&\s*Kitchen|Tools\s*&\s*Home Improvement)\.\s*",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"^Amazon\.com:\s*[^.]+\.\s*", "", text, flags=re.I)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    clipped = text[: limit - 1].rsplit(" ", 1)[0]
+    return (clipped or text[: limit - 1]) + "…"
 
 
 def band_from_likelihood(likelihood: int) -> str:
@@ -72,7 +102,7 @@ def normalize_verdict(raw: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "verdict": verdict,
         "buy_likelihood": likelihood,
-        "product_selected": str(data.get("product_selected") or "").strip()[:200],
+        "product_selected": _short_listing_name(str(data.get("product_selected") or ""), 120),
         "product_url": str(data.get("product_url") or "").strip()[:500],
         "confidence": confidence,
         "rationale": str(data.get("rationale") or "").strip()[:1200],
@@ -231,38 +261,42 @@ def _panel_decision(avg_likelihood: int) -> tuple[str, str]:
     return "unlikely", "Unlikely to convert"
 
 
+def _panel_insight(shoppers: list[dict[str, Any]]) -> str:
+    snippets: list[str] = []
+    for shopper in shoppers:
+        raw = str((shopper.get("verdict") or {}).get("rationale") or "").strip()
+        cleaned = _clean_rationale(raw)
+        if cleaned and cleaned not in snippets:
+            snippets.append(cleaned)
+    if not snippets:
+        return ""
+    if len(snippets) == 1:
+        return snippets[0]
+    return snippets[0]
+
+
+def _unique_blockers(shoppers: list[dict[str, Any]], *, limit: int = 4) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for shopper in shoppers:
+        for item in (shopper.get("verdict") or {}).get("conversion_blockers") or []:
+            text = re.sub(r"\s+", " ", str(item).strip())
+            if not text:
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(text[:160])
+            if len(out) >= limit:
+                return out
+    return out
+
+
 def _panel_why(shoppers: list[dict[str, Any]], avg_likelihood: int, label: str) -> str:
-    n = len(shoppers)
-    who = f"{n} shopper" if n == 1 else f"{n} shoppers"
-    parts = [
-        f"{label}: {who} put the average chance of buying this listing at {avg_likelihood}%."
-    ]
-    preferred = [
-        (s.get("verdict") or {}).get("product_selected") or ""
-        for s in shoppers
-        if (s.get("verdict") or {}).get("verdict") == "no"
-    ]
-    preferred = [p for p in preferred if p]
-    if preferred:
-        top = Counter(preferred).most_common(1)[0][0]
-        parts.append(f"Several would buy {top} instead.")
-    blockers: list[str] = []
-    for s in shoppers:
-        blockers.extend((s.get("verdict") or {}).get("conversion_blockers") or [])
-    if blockers:
-        uniq = list(dict.fromkeys(blockers))[:3]
-        parts.append("Main blockers: " + "; ".join(uniq) + ".")
-    rationales = [
-        str((s.get("verdict") or {}).get("rationale") or "").strip()
-        for s in shoppers
-    ]
-    rationales = [r for r in rationales if r]
-    if rationales:
-        sample = rationales[0]
-        if len(sample) > 280:
-            sample = sample[:277].rsplit(" ", 1)[0] + "…"
-        parts.append(sample)
-    return " ".join(parts)
+    """Short insight line — details live in blockers + per-shopper cards."""
+    del avg_likelihood, label
+    return _panel_insight(shoppers)
 
 
 def aggregate_panel(shoppers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -288,6 +322,7 @@ def aggregate_panel(shoppers: list[dict[str, Any]]) -> dict[str, Any]:
     n = max(len(shoppers), 1)
     avg_likelihood = round(sum(likelihoods) / len(likelihoods)) if likelihoods else 0
     decision, label = _panel_decision(avg_likelihood)
+    top_blockers = _unique_blockers(normalized)
     return {
         "n": len(shoppers),
         "counts": counts,
@@ -299,7 +334,7 @@ def aggregate_panel(shoppers: list[dict[str, Any]]) -> dict[str, Any]:
         "panel_verdict": decision,
         "panel_label": label,
         "why": _panel_why(normalized, avg_likelihood, label),
-        "top_blockers": blockers[:12],
+        "top_blockers": top_blockers,
     }
 
 

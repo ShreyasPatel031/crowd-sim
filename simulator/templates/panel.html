@@ -19,7 +19,13 @@
     .stat b { display: block; font-size: 28px; letter-spacing: -0.03em; }
     .stat span { font-size: 12px; color: #5c5c5c; text-transform: uppercase; letter-spacing: 0.06em; }
     .lede { font-size: 15px; line-height: 1.5; margin: 0; }
-    .why-panel { font-size: 15px; line-height: 1.55; margin: 10px 0 0; }
+    .why-panel { font-size: 14px; line-height: 1.55; margin: 14px 0 0; color: #333; }
+    .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+    .panel-label { font-size: 22px; font-weight: 650; letter-spacing: -0.03em; margin: 0; line-height: 1.2; }
+    .panel-sub { font-size: 13px; color: #5c5c5c; margin: 6px 0 0; }
+    .panel-score b { font-size: 48px; letter-spacing: -0.05em; line-height: 1; }
+    .panel-blockers { margin-top: 14px; }
+    .panel-blockers ul { margin: 6px 0 0; padding-left: 18px; color: #333; font-size: 14px; line-height: 1.45; }
     .likelihood { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; }
     .likelihood b { font-size: 42px; letter-spacing: -0.04em; }
     .likelihood span { color: #5c5c5c; font-size: 13px; }
@@ -57,14 +63,26 @@
 
     <div class="card">
       <div class="kicker">PANEL RESULT</div>
-      <p class="lede">
-        <strong>{{ report.summary.panel_label or report.summary.panel_verdict }}</strong>
-      </p>
-      <div class="likelihood">
-        <b>{{ report.summary.avg_buy_likelihood if report.summary.avg_buy_likelihood is not none else report.summary.avg_confidence or 0 }}%</b>
-        <span>average chance these shoppers buy your listing</span>
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-label">{{ report.summary.panel_label or report.summary.panel_verdict }}</h2>
+          <p class="panel-sub">{{ report.summary.n }} synthetic shopper{{ '' if report.summary.n == 1 else 's' }} · average buy likelihood</p>
+        </div>
+        <div class="panel-score">
+          <b>{{ report.summary.avg_buy_likelihood if report.summary.avg_buy_likelihood is not none else report.summary.avg_confidence or 0 }}%</b>
+        </div>
       </div>
       <div class="bar"><i style="width: {{ report.summary.avg_buy_likelihood if report.summary.avg_buy_likelihood is not none else report.summary.avg_confidence or 0 }}%"></i></div>
+      {% if report.summary.top_blockers %}
+      <div class="panel-blockers">
+        <div class="kicker">Main hesitations</div>
+        <ul>
+          {% for item in report.summary.top_blockers %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
       {% if report.summary.why %}
       <p class="why-panel">{{ report.summary.why }}</p>
       {% endif %}

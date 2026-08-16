@@ -30,3 +30,4 @@ models/
 *.bin
 *.gguf
 hf_cache/
+.vercel
