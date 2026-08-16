@@ -206,6 +206,8 @@
     findBtn.addEventListener("click", async function () {
       findBtn.disabled = true;
       findStatus.textContent = "Searching Amazon…";
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 25000);
       try {
         let productUrl = (urlInput.value || "").trim();
         productUrl = productUrl.replace(/^https?:\/\/amazon\.com/i, "https://www.amazon.com");
@@ -216,7 +218,7 @@
         const taskQuery = (taskSel.selectedOptions[0] && taskSel.selectedOptions[0].dataset.query) || "";
         if (taskQuery) params.set("query", taskQuery);
         if (persona) params.set("persona", persona.value);
-        const res = await fetch("/competitors?" + params.toString());
+        const res = await fetch("/competitors?" + params.toString(), { signal: controller.signal });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Lookup failed");
         const urls = (data.competitors || []).map((c) => c.url);
@@ -226,9 +228,14 @@
           ? `Found ${urls.length} competitor${urls.length === 1 ? "" : "s"} for “${data.query || data.product_title || "this listing"}”: ${names.join(" · ")}`
           : `No competitors found for “${data.query || "this listing"}” — paste URLs or the panel will search while it runs.`;
       } catch (err) {
-        findStatus.textContent = err.message || "Could not find competitors.";
+        findStatus.textContent =
+          err.name === "AbortError"
+            ? "Search timed out — try again or paste competitor URLs manually."
+            : (err.message || "Could not find competitors.");
+      } finally {
+        clearTimeout(timer);
+        findBtn.disabled = false;
       }
-      findBtn.disabled = false;
     });
 
     function renderPersonaHits(data) {

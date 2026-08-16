@@ -589,11 +589,6 @@ async def competitors_api(url: str, query: str = "", persona: str = ""):
         url = validate_public_url(url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if uses_panel_worker():
-        params = urllib.parse.urlencode(
-            {k: v for k, v in {"url": url, "query": query, "persona": persona}.items() if v}
-        )
-        return await asyncio.to_thread(proxy_get, f"/competitors?{params}")
     from simulator.competitors import find_competitors
     from simulator.personas import get_personas as _get
 

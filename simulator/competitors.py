@@ -213,13 +213,14 @@ def competitors_from_amazon_http(
     *,
     seed_title: str = "",
     seed_brand: str = "",
+    timeout: float = 20.0,
 ) -> list[dict[str, str]]:
     q = (query or "").strip()
     if not q:
         return []
     search_url = "https://www.amazon.com/s?" + urllib.parse.urlencode({"k": q})
     try:
-        html = _fetch_html(search_url, timeout=20.0)
+        html = _fetch_html(search_url, timeout=timeout)
     except Exception:
         return []
     if len(html) < 8000 or "captcha" in html.lower():
@@ -594,7 +595,10 @@ async def find_competitors(
         }
     skip = {seed_asin}
     meta = catalog_product_for_asin(seed_asin) if seed_asin else {}
-    http_meta = fetch_amazon_product_http(product_url) if seed_asin else {}
+    on_vercel = is_vercel_runtime()
+    http_meta: dict[str, str] = {}
+    if seed_asin and not (on_vercel and meta.get("title")):
+        http_meta = fetch_amazon_product_http(product_url)
     seed_title = http_meta.get("title") or meta.get("title") or ""
     seed_brand = http_meta.get("brand") or meta.get("brand") or brand_from_title(seed_title)
     q = resolve_search_query(explicit=query, meta=meta, seed_title=seed_title, persona=persona)
@@ -602,18 +606,50 @@ async def find_competitors(
     source = "none"
     items: list[dict[str, str]] = []
 
-    extra_http = competitors_from_amazon_http(
-        q,
-        skip,
-        limit,
-        seed_title=seed_title,
-        seed_brand=seed_brand,
-    )
-    if extra_http:
-        items.extend(extra_http)
-        source = "amazon"
+    if on_vercel:
+        extra_opera = competitors_from_opera(
+            q,
+            skip,
+            limit,
+            seed_title=seed_title,
+            seed_brand=seed_brand,
+        )
+        if extra_opera:
+            items.extend(extra_opera)
+            source = "opera"
+        if len(items) < limit:
+            extra_http = competitors_from_amazon_http(
+                q,
+                skip | {i["asin"] for i in items},
+                limit - len(items),
+                seed_title=seed_title,
+                seed_brand=seed_brand,
+                timeout=6.0,
+            )
+            if extra_http:
+                items.extend(extra_http)
+                source = "opera+amazon" if source == "opera" else "amazon"
+        return {
+            "product_url": product_url,
+            "product_title": title or q,
+            "query": q,
+            "source": source,
+            "competitors": items[:limit],
+        }
 
-    if not is_vercel_runtime() and len(items) < limit:
+    if len(items) < limit:
+        extra_http = competitors_from_amazon_http(
+            q,
+            skip | {i["asin"] for i in items},
+            limit - len(items),
+            seed_title=seed_title,
+            seed_brand=seed_brand,
+        )
+        if extra_http:
+            items.extend(extra_http)
+            source = "amazon"
+
+    if len(items) < limit:
         try:
             amazon = await _from_amazon(product_url, q, skip | {i["asin"] for i in items}, limit - len(items), seed_title=seed_title, seed_brand=seed_brand)
             title = amazon.get("title") or title
@@ -643,7 +679,7 @@ async def find_competitors(
             items.extend(extra)
             source = "search" if source == "none" else source + "+search"
 
-    if len(items) < limit:
+    if len(items) < limit and not on_vercel:
         extra = competitors_from_opera(
             q,
             skip | {i["asin"] for i in items},
