@@ -28,7 +28,7 @@
     .verdict.buy { background: #dcefdc; color: #1d5c2e; }
     .verdict.maybe { background: #f7ecd0; color: #6a4b00; }
     .verdict.no { background: #fde8e8; color: #8a1f1f; }
-    .verdict.running { background: #e7eefc; color: #1d3c8a; }
+    .pill.free { background: #dcefdc; color: #1d5c2e; font-weight: 700; }
     .think { background: #f6f5f1; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
     .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #6a6a6a; margin-bottom: 6px; }
     img.shot { width: 100%; border-radius: 10px; border: 1px solid #e4e0d8; background: #fff; }
@@ -71,7 +71,7 @@
       <p class="meta" id="status-meta"></p>
     </div>
     <div class="card panel-result" id="panel-result" hidden>
-      <div class="kicker">PANEL RESULT</div>
+      <div class="kicker">PANEL RESULT <span class="pill free">Free</span></div>
       <div class="panel-head">
         <div>
           <h2 class="panel-label" id="panel-label"></h2>
@@ -292,9 +292,6 @@
 
     function renderPanelSummary(summary) {
       const card = document.getElementById("panel-result");
-      const lede = document.getElementById("panel-lede");
-      const counts = document.getElementById("panel-counts");
-      const why = document.getElementById("panel-why");
       if (!summary || !summary.panel_verdict) {
         card.hidden = true;
         return;
@@ -302,9 +299,33 @@
       card.hidden = false;
       const avg = summary.avg_buy_likelihood != null ? summary.avg_buy_likelihood : summary.avg_confidence;
       const label = summary.panel_label || summary.panel_verdict;
-      lede.textContent = avg != null ? `${label} · ${avg}% likely to buy this listing` : label;
-      if (why) why.textContent = summary.why || "";
-      counts.hidden = false;
+      document.getElementById("panel-label").textContent = label;
+      document.getElementById("panel-sub").textContent =
+        `${summary.n || 1} synthetic shopper${summary.n === 1 ? "" : "s"} · average buy likelihood`;
+      document.getElementById("panel-score").textContent = avg != null ? `${avg}%` : "—";
+      document.getElementById("panel-bar").style.width = `${avg || 0}%`;
+      const blockers = summary.top_blockers || [];
+      const blockWrap = document.getElementById("panel-blockers");
+      const blockList = document.getElementById("panel-blocker-list");
+      if (blockers.length) {
+        blockWrap.hidden = false;
+        blockList.innerHTML = "";
+        for (const item of blockers) {
+          const li = document.createElement("li");
+          li.textContent = item;
+          blockList.appendChild(li);
+        }
+      } else {
+        blockWrap.hidden = true;
+      }
+      const insight = document.getElementById("panel-insight");
+      if (summary.why) {
+        insight.hidden = false;
+        insight.textContent = summary.why;
+      } else {
+        insight.hidden = true;
+      }
+      document.getElementById("panel-counts").hidden = false;
       document.getElementById("count-buy").textContent = summary.counts?.buy ?? 0;
       document.getElementById("count-maybe").textContent = summary.counts?.maybe ?? 0;
       document.getElementById("count-no").textContent = summary.counts?.no ?? 0;

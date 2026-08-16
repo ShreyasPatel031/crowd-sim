@@ -35,7 +35,7 @@
     .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #eceae4; margin-right: 6px; text-transform: uppercase; }
     .pill.buy { background: #dcefdc; color: #1d5c2e; }
     .pill.maybe { background: #f7ecd0; color: #6a4b00; }
-    .pill.no { background: #fde8e8; color: #8a1f1f; }
+    .pill.free { background: #dcefdc; color: #1d5c2e; }
     .shopper { overflow: hidden; }
     .shopper h3 { margin: 0 0 6px; font-size: 16px; }
     .why { font-size: 14px; line-height: 1.5; margin: 10px 0; }
@@ -62,7 +62,7 @@
     </div>
 
     <div class="card">
-      <div class="kicker">PANEL RESULT</div>
+      <div class="kicker">PANEL RESULT <span class="pill free">Free</span></div>
       <div class="panel-head">
         <div>
           <h2 class="panel-label">{{ report.summary.panel_label or report.summary.panel_verdict }}</h2>
@@ -111,7 +111,7 @@
     </div>
     {% endif %}
 
-    <h2>Shoppers</h2>
+    <h2>Shoppers <span class="pill free">Free · full detail</span></h2>
     {% for s in report.shoppers %}
     <div class="card shopper">
       <h3>{{ s.persona.name }} · {{ s.persona.label }}
@@ -150,8 +150,8 @@
 
     {% if stripe_ready %}
     <div class="card">
-      <div class="kicker">NEXT STEP</div>
-      <p class="lede">Want another panel or a human Terac study? <a href="/pay">Pay via Stripe</a>.</p>
+      <div class="kicker">OPTIONAL</div>
+      <p class="lede">Want real humans on Terac or to support Crowd Sim? <a href="/pay">Pay via Stripe</a> — synthetic panels and this full report stay free.</p>
     </div>
     {% endif %}
   </main>
