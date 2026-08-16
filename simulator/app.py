@@ -256,6 +256,37 @@ def _enrich_panel_progress(panel_id: str, progress: dict) -> dict:
     return progress
 
 
+def _enrich_panel_report(panel_id: str, report: dict[str, Any]) -> dict[str, Any]:
+    """Attach panel items + per-shopper listing walkthroughs from child runs."""
+    fake: dict[str, Any] = {
+        "product_url": report.get("product_url") or "",
+        "competitor_urls": report.get("competitor_urls") or [],
+        "shoppers": [],
+    }
+    for row in report.get("shoppers") or []:
+        persona = row.get("persona") or {}
+        pid = persona.get("id") or ""
+        fake["shoppers"].append(
+            {
+                "id": pid,
+                "name": persona.get("name") or "",
+                "label": persona.get("label") or "",
+                "status": row.get("status") or "done",
+                "run_id": row.get("run_id") or (f"{panel_id}_{pid}" if pid else ""),
+            }
+        )
+    enriched = _enrich_panel_progress(panel_id, fake)
+    listings_by_run = {
+        s.get("run_id") or "": s.get("listings") or [] for s in enriched.get("shoppers") or []
+    }
+    shoppers_out: list[dict[str, Any]] = []
+    for row in report.get("shoppers") or []:
+        persona = row.get("persona") or {}
+        run_id = row.get("run_id") or f"{panel_id}_{persona.get('id')}"
+        shoppers_out.append({**row, "listings": listings_by_run.get(run_id) or []})
+    return {**report, "items": enriched.get("items") or [], "shoppers": shoppers_out}
+
+
 def _home_context(request: Request, **extra) -> dict:
     from simulator.persona_search import list_example_products
 
@@ -714,12 +745,14 @@ async def show_report(request: Request, run_id: str):
     if report_path.exists():
         report = _read_json(report_path)
         if report.get("kind") == "panel":
+            report = prepare_panel_report(report)
+            report = _enrich_panel_report(run_id, report)
             return templates.TemplateResponse(
                 request,
                 "panel.html",
                 {
                     "request": request,
-                    "report": prepare_panel_report(report),
+                    "report": report,
                     "panel_id": run_id,
                     "stripe_link": payment_link(),
                     "stripe_ready": stripe_configured(),

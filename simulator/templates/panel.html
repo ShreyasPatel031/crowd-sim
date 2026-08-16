@@ -42,6 +42,18 @@
     .kv { font-size: 13px; color: #444; margin: 4px 0; }
     img.shot { width: 100%; display: block; border-radius: 8px; border: 1px solid #e4e0d8; margin-top: 12px; }
     ul { margin: 6px 0 0; padding-left: 18px; }
+    .item-grid { display: grid; gap: 10px; }
+    .item-row { border: 1px solid #eceae4; border-radius: 10px; padding: 10px 12px; }
+    .item-row strong { display: block; font-size: 14px; line-height: 1.35; margin-top: 4px; }
+    .item-row .role { margin-bottom: 2px; }
+    .listing { border-top: 1px solid #eceae4; margin-top: 14px; padding-top: 14px; }
+    .listing h4 { margin: 0 0 6px; font-size: 14px; line-height: 1.35; }
+    ol.steps { list-style: none; padding: 0; margin: 10px 0 0; }
+    ol.steps li { padding: 8px 0; border-top: 1px solid #f0ede6; font-size: 13px; }
+    .step-action { font-weight: 700; }
+    .step-detail { color: #444; }
+    .step-why { margin-top: 4px; color: #333; line-height: 1.45; font-size: 12px; }
+    img.step-shot { width: 100%; max-width: 420px; border-radius: 8px; border: 1px solid #e4e0d8; margin-top: 8px; display: block; }
   </style>
 </head>
 <body>
@@ -60,6 +72,23 @@
       <p class="meta">Competitors: {{ report.competitor_urls | join(" · ") }}</p>
       {% endif %}
     </div>
+
+    {% if report.items %}
+    <div class="card">
+      <div class="kicker">ITEMS <span class="pill free">Free</span></div>
+      <div class="item-grid">
+        {% for item in report.items %}
+        <div class="item-row">
+          <span class="pill role {% if item.role == 'product' %}buy{% else %}maybe{% endif %}">
+            {{ 'Your listing' if item.role == 'product' else ('Competitor ' ~ item.index|string) }}
+          </span>
+          <strong>{{ item.label or item.title or item.url }}</strong>
+          <p class="meta">{{ item.url }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="card">
       <div class="kicker">PANEL RESULT <span class="pill free">Free</span></div>
@@ -141,6 +170,41 @@
       {% if s.screenshot %}
         {% set parts = s.screenshot.split("/") %}
         <img class="shot" src="/r/{{ parts[0] }}/shot/{{ parts[1] }}" alt="{{ s.persona.name }}" />
+      {% endif %}
+      {% if s.listings %}
+      <div class="kicker" style="margin-top:16px;">LISTINGS BROWSED</div>
+      {% for lst in s.listings %}
+      <div class="listing">
+        <h4>
+          {{ lst.label or lst.title or lst.url }}
+          {% if lst.role == 'product' %}<span class="pill buy">Your listing</span>{% else %}<span class="pill maybe">Competitor</span>{% endif %}
+        </h4>
+        <p class="meta">{{ lst.url }}</p>
+        {% if lst.thinking %}<p class="why">{{ lst.thinking }}</p>{% endif %}
+        {% if lst.screenshot %}
+          {% set lparts = lst.screenshot.split("/") %}
+          <img class="step-shot" src="/r/{{ lparts[0] }}/shot/{{ lparts[-1] }}" alt="{{ lst.label }}" />
+        {% endif %}
+        {% if lst.steps %}
+        <ol class="steps">
+          {% for step in lst.steps %}
+          <li>
+            <span class="step-action">Step {{ step.step }}: {{ step.decision.action if step.decision else 'Browse' }}</span>
+            {% if step.decision and step.decision.detail and step.decision.detail != step.decision.action %}
+            <span class="step-detail"> — {{ step.decision.detail }}</span>
+            {% endif %}
+            {% if step.decision and (step.decision.reason or step.decision.memory) %}
+            <div class="step-why">{{ step.decision.reason or step.decision.memory }}</div>
+            {% endif %}
+            {% if step.screenshot and lst.run_id %}
+            <img class="step-shot" src="/r/{{ lst.run_id }}/shot/{{ step.screenshot }}" alt="Step {{ step.step }}" />
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+        {% endif %}
+      </div>
+      {% endfor %}
       {% endif %}
       {% if s.run_id %}
         <p class="meta"><a href="/r/{{ s.run_id }}">Full walkthrough</a></p>
