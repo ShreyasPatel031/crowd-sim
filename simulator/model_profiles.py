@@ -53,6 +53,10 @@ PROFILES: dict[str, dict[str, Any]] = {
 DEFAULT_PROFILE = os.environ.get("SHOPPER_MODEL", "gemini").strip().lower() or "gemini"
 
 
+def is_vercel_runtime() -> bool:
+    return bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV") or os.environ.get("VERCEL_URL"))
+
+
 def all_profiles() -> list[dict[str, Any]]:
     return list(PROFILES.values())
 
@@ -70,8 +74,8 @@ def profile_available(profile_id: str | None) -> bool:
 
 
 def panel_available_for(profile_id: str | None) -> bool:
-    if os.environ.get("VERCEL"):
-        return bool(os.environ.get("PANEL_WORKER_URL"))
+    if is_vercel_runtime():
+        return bool((os.environ.get("PANEL_WORKER_URL") or "").strip())
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]

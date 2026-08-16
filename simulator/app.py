@@ -24,6 +24,7 @@ from simulator.model_profiles import (
     DEFAULT_PROFILE,
     all_profiles,
     get_profile,
+    is_vercel_runtime,
     panel_available_for,
     profile_available,
 )
@@ -272,7 +273,7 @@ def _home_context(request: Request, **extra) -> dict:
             tasks.append(task)
     selected = extra.get("selected") or [p["id"] for p in shown_people[:1]]
     model_profile = extra.get("model_profile") or DEFAULT_PROFILE
-    on_vercel = bool(os.environ.get("VERCEL"))
+    on_vercel = is_vercel_runtime()
     panel_ready = panel_available_for(model_profile)
     return {
         "request": request,
@@ -351,7 +352,7 @@ async def _run_panel(
 ) -> None:
     out_dir = _run_dir(panel_id)
     if not panel_available_for(model_profile):
-        if os.environ.get("VERCEL"):
+        if is_vercel_runtime():
             _mark_progress_error(
                 out_dir,
                 "Live browser panels need a worker machine. Set PANEL_WORKER_URL or run locally on port 8000.",
@@ -404,7 +405,7 @@ async def _run_panel(
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     ctx = _home_context(request)
-    if not ctx["ready"] and not os.environ.get("VERCEL"):
+    if not ctx["ready"] and not is_vercel_runtime():
         profile = ctx["model_profile"]
         ctx["error"] = ctx.get("error") or (
             f"{profile['label']} unavailable — set the API key for this model or run the worker locally."
@@ -456,7 +457,7 @@ async def start_panel(
             f"{profile['label']} unavailable — "
             + (
                 "set PANEL_WORKER_URL on Vercel or run locally."
-                if os.environ.get("VERCEL")
+                if is_vercel_runtime()
                 else "set GOOGLE_API_KEY / PIONEER_API_KEY and install .venv-bu."
             )
         )
