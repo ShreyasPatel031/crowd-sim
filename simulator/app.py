@@ -732,6 +732,8 @@ async def simulate_api(payload: dict):
 
 @app.get("/r/{run_id}/status")
 async def run_status(run_id: str):
+    if uses_panel_worker():
+        return await asyncio.to_thread(proxy_get, f"/r/{run_id}/status")
     progress_path = _run_dir(run_id) / "progress.json"
     if not progress_path.exists():
         raise HTTPException(status_code=404, detail="Run not found")
@@ -740,6 +742,8 @@ async def run_status(run_id: str):
 
 @app.get("/r/{run_id}", response_class=HTMLResponse)
 async def show_report(request: Request, run_id: str):
+    if uses_panel_worker():
+        return await asyncio.to_thread(proxy_get, f"/r/{run_id}")
     out_dir = _run_dir(run_id)
     report_path = out_dir / "report.json"
     if report_path.exists():
